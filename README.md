@@ -15,6 +15,7 @@ Resource Integration Gear provides an offline-first interface that gathers key h
 ### Core Project Docs
 - [`PROJECT-REVIEW.md`](PROJECT-REVIEW.md) — Scope & feasibility audit (`venture-killer`) with proposed MVP cuts *(pending team review)*.
 - [`docs/METRICS_PRIORIZATION.md`](docs/METRICS_PRIORIZATION.md) — Health metric hierarchy (Primary HUD, Secondary Trends, Excluded) and NASA references.
+- [`docs/STACK_SETUP.md`](docs/STACK_SETUP.md) — Full-stack installation & development guide (Wails v3 desktop/UI, Go API, PostgreSQL 17+).
 - [`db/README.md`](db/README.md) — PostgreSQL schema (`001_schema.sql`), catalog seeds (`002_seed.sql`), and 3-day demo dataset (`003_demo_seed.sql`).
 
 ### Planning & Ground Rules (`.routing/`)

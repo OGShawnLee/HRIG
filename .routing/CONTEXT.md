@@ -21,6 +21,7 @@
   - [`README.md`](../README.md) — Minimal hackathon project overview and repository navigation.
   - [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md) — Cold scope & feasibility review (`venture-killer`) pending team review.
   - [`METRICS_PRIORIZATION.md`](../docs/METRICS_PRIORIZATION.md) — Minimal health metric tiers (Primary, Secondary, Excluded) and NASA references.
+  - [`STACK_SETUP.md`](../docs/STACK_SETUP.md) — Full-stack installation and local setup guide (Wails v3, Vue 3, Go API, PostgreSQL 17+).
   - [`db/`](../db/) — PostgreSQL SQL schema (`001_schema.sql`), catalog seeds (`002_seed.sql`), and demo data (`003_demo_seed.sql`).
   - [`.claude/skills/`](../.claude/skills/) — Project workflow skills (`router`, `ticket`, `venture-killer`).
   - [`.tickets/`](../.tickets/) — Implementation tickets (`task.md`, `spec.md`, `changelog.md`).

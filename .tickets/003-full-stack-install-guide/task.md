@@ -3,7 +3,7 @@
 | Field | Value |
 | :--- | :--- |
 | **ID** | `003` |
-| **Status** | `draft` |
+| **Status** | `completed` |
 | **Worker** | `antigravity` / `gemini-4-hydrogen` (`thinking_level: medium`) |
 | **Role** | Technical Documentation Writer |
 | **Spec** | [spec.md](spec.md) |
@@ -46,10 +46,9 @@ Read these files before acting (do not invent package versions, scripts, table n
 
 ## Grounding & Anti-Hallucination Constraints
 
-- **Monorepo Layout:**
+- **Stack Layout:**
   - `app/` — Wails v3 desktop application (Go backend + Vue 3 / Vite / UnoCSS / TypeScript frontend).
-  - `shared/` — Shared Go models (`module hrig/shared`, `shared/model/telemetry.go`) used by `server/` and `app/` (for 100% TypeScript-safe Wails v3 bindings once connected).
-  - `server/` — Go HTTP + WebSocket API (`module hrig/server`, Chi + Gorilla WebSocket), linked via root `go.work` (`./app`, `./server`, `./shared`).
+  - `server/` — Go HTTP + WebSocket API (`module hrig/server`, Chi v5 + Gorilla WebSocket, scaffolded bare-bones in Ticket `004`).
   - `db/` — PostgreSQL 17+ SQL schema (`001_schema.sql`), catalog & threshold seeds (`002_seed.sql`), and 3-day demo dataset (`003_demo_seed.sql`).
 - **Frontend & Wails v3 Stack (exact verified values from `app/`):**
   - Package manager: `bun` (verified host baseline `1.4.4`; note `app/frontend/.npmrc` sets `minimum-release-age=10080`).
@@ -69,22 +68,22 @@ Read these files before acting (do not invent package versions, scripts, table n
     3. `psql -h 127.0.0.1 -p 5432 -U postgres -d hrig -v ON_ERROR_STOP=1 -f db/003_demo_seed.sql` (idempotent 3-day demo data: 3 astronauts, cabin & EVA suit telemetry)
   - Local connection string example: `DATABASE_URL=postgres://postgres@127.0.0.1:5432/hrig?sslmode=disable`.
   - Note if Ticket `005` has already added `db:migrate` / `db:seed` in `Taskfile.yml`, document those aliases alongside the direct `psql` commands; if not yet present in `Taskfile.yml`, label `db:migrate`/`db:seed` as `[Ticket 005]` or stick to the verified `psql` commands above.
-- **Backend API Layer (`server/` + `shared/`):**
-  - Document `server/.env.example` (`HRIG_API_ADDR=:8080`, `HRIG_ALLOWED_ORIGINS`, `HRIG_STALE_AFTER=10s`, `DATABASE_URL`), `wails3 task server:check` / `server:dev`, and the HTTP/WebSocket surface (`GET /health`, `GET /api/snapshot`, `GET /api/astronauts`, `GET /api/metrics`, `GET /api/trends`, `GET /api/history`, `POST /api/checkins`, `POST /api/alerts/{id}/ack`, `WS /ws/ingest`, `WS /ws/realtime`).
+- **Backend API Layer (`server/`):**
+  - Document `server/.env.example` (`HRIG_API_ADDR=:8080`, `HRIG_ALLOWED_ORIGINS`, `DATABASE_URL`), `wails3 task server:check` / `server:dev`, and the baseline HTTP/WebSocket endpoints (`GET /health`, `GET /ws`).
 - Write `docs/STACK_SETUP.md` in English.
 - Do **not** commit or push any changes to git.
 
 ## Task
 
 1. Create `docs/STACK_SETUP.md` with these sections in order:
-   - **1. Architecture & Stack Overview:** Summary table covering Desktop/UI (`app/`: Wails v3.0.0, Vue 3, Vite, UnoCSS, Bun), Shared Models (`shared/`: `hrig/shared/model`), Backend API (`server/`: Go >= 1.26, Chi v5, Gorilla WebSocket), and Database (`db/`: PostgreSQL 17+).
+   - **1. Architecture & Stack Overview:** Summary table covering Desktop/UI (`app/`: Wails v3.0.0, Vue 3, Vite, UnoCSS, Bun), Backend API (`server/`: Go >= 1.26, Chi v5, Gorilla WebSocket), and Database (`db/`: PostgreSQL 17+).
    - **2. Prerequisites by Operating System:** Windows (Go, Wails v3, Bun, WebView2), macOS (Go, Wails v3, Bun, Xcode CLT / WKWebView), and Linux (Go, Wails v3, Bun, WebKitGTK).
    - **3. Database Setup (PostgreSQL 17+):**
      - Windows Portable (`local/pgsql/` via `wails3 task db:start` / `db:stop` / `db:status` / `db:psql`) and Windows `debian/bookworm` headless VM / WSL2 notes (`listen_addresses`, `pg_hba.conf`, port `5432`).
      - macOS (`OrbStack` / `Colima`, `brew install postgresql@17`, or `Postgres.app`).
      - Linux (`docker` or native `postgresql-17`).
      - **Applying Schema & Seeds:** Exact `psql` commands for `db/001_schema.sql`, `db/002_seed.sql`, and `db/003_demo_seed.sql` (noting `001_schema.sql` runs once on a clean DB while `002_seed.sql` and `003_demo_seed.sql` are idempotent), plus `DATABASE_URL=postgres://postgres@127.0.0.1:5432/hrig?sslmode=disable`.
-   - **4. Running the Backend API (`server/` + `shared/`):** `go.work` workspace overview, `server/.env.example`, `wails3 task server:check` and `wails3 task server:dev`, and the HTTP/WebSocket endpoints.
+   - **4. Running the Backend API (`server/`):** `server/.env.example`, `wails3 task server:check` and `wails3 task server:dev`, and baseline HTTP/WebSocket endpoints (`GET /health`, `GET /ws`).
    - **5. Running the Desktop & Frontend App (`app/`):**
      - **Option A — Frontend-Only UI Dev:** `cd app/frontend && bun install`, `bun run dev` (`http://127.0.0.1:9245`), `bun run type-check`, `bun run build`, and note on pre-generated `@bindings/` vs. live desktop bridge calls.
      - **Option B — Full Desktop App (Wails v3):** `wails3 task client:check` and `wails3 task client:dev` from repo root.
