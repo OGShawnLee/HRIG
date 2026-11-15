@@ -1,4 +1,4 @@
-# bd.md — Astronaut Profiles and Measurements
+# BD.md — Astronaut Profiles and Measurements
 
 > **Status:** specification for review. No SQL has been generated and nothing exists in the database yet.
 > **Scope:** only the **astronaut profile** and the **measurements with their unit of measure**.

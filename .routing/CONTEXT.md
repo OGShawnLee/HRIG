@@ -7,6 +7,8 @@
 - [`DOMAIN.md`](DOMAIN.md) — Ubiquitous Language glossary defining core domain concepts, metric tiers, severity states, and clinical roles.
 - [`SPECIFICATION.md`](SPECIFICATION.md) — Refined software functional (`RF01`–`RF16`) and non-functional (`RNF01`–`RNF12`) requirements in Spanish until final delivery.
 - [`DESIGN.md`](DESIGN.md) — Simplified UI/UX design guidelines, status encoding, body map rules, and human-factors references.
+- [`BD.md`](BD.md) — PostgreSQL database design specification (tables, constraints, triggers, seed units/metrics).
+- [`BDML.md`](BDML.md) — DBML schema representation matching `BD.md`.
 - [`PROGRESS.md`](PROGRESS.md) — Current task status, completed milestones, and upcoming work.
 - [`image.png`](image.png) — Reference visual summarizing NASA's five hazards of human spaceflight.
 - `reference/` — Minimal reminder notes on NASA's five hazards of human spaceflight:
@@ -19,6 +21,7 @@
   - [`README.md`](../README.md) — Minimal hackathon project overview and repository navigation.
   - [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md) — Cold scope & feasibility review (`venture-killer`) pending team review.
   - [`METRICS_PRIORIZATION.md`](../docs/METRICS_PRIORIZATION.md) — Minimal health metric tiers (Primary, Secondary, Excluded) and NASA references.
+  - [`db/`](../db/) — PostgreSQL SQL schema (`001_schema.sql`), catalog seeds (`002_seed.sql`), and demo data (`003_demo_seed.sql`).
   - [`.claude/skills/`](../.claude/skills/) — Project workflow skills (`router`, `ticket`, `venture-killer`).
   - [`.tickets/`](../.tickets/) — Implementation tickets (`task.md`, `spec.md`, `changelog.md`).
   - [`app/`](../app/) — Wails v3 desktop application (Go backend + Vue 3 / UnoCSS / TypeScript frontend).

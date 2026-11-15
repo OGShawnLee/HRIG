@@ -1,6 +1,6 @@
 -- ============================================================================
 -- HRIG · Astronaut profiles and measurements
--- 002_seed.sql — idempotent catalogs from docs/bd.md
+-- 002_seed.sql — idempotent catalogs from .routing/BD.md
 -- Re-running this file never duplicates rows.
 -- ============================================================================
 

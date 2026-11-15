@@ -1,6 +1,6 @@
 -- ============================================================================
 -- HRIG · Astronaut profiles and measurements
--- 001_schema.sql — generated from docs/bd.md
+-- 001_schema.sql — generated from .routing/BD.md
 -- Target: PostgreSQL 17+
 -- ============================================================================
 

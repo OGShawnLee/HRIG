@@ -1,6 +1,6 @@
 // ============================================================================
 // HRIG · Astronaut profiles and measurements
-// Generated from docs/bd.md — names, types, cardinalities and constraints
+// Generated from .routing/BD.md — names, types, cardinalities and constraints
 // are preserved exactly as specified.
 // Target engine: PostgreSQL 18
 // ============================================================================
@@ -297,7 +297,7 @@ Table media_asset {
 }
 
 // ----------------------------------------------------------------------------
-// Explicit relationships (cardinality per docs/bd.md)
+// Explicit relationships (cardinality per .routing/BD.md)
 // ----------------------------------------------------------------------------
 Ref: measurement.astronaut_id          > astronaut.id        // astronaut 1 : N measurement, optional
 Ref: measurement.device_id             > device.id           // device 1 : N measurement, optional

@@ -15,7 +15,7 @@ Resource Integration Gear provides an offline-first interface that gathers key h
 ### Core Project Docs
 - [`PROJECT-REVIEW.md`](PROJECT-REVIEW.md) — Scope & feasibility audit (`venture-killer`) with proposed MVP cuts *(pending team review)*.
 - [`docs/METRICS_PRIORIZATION.md`](docs/METRICS_PRIORIZATION.md) — Health metric hierarchy (Primary HUD, Secondary Trends, Excluded) and NASA references.
-- [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md) — PostgreSQL schema proposal (objects, attributes, relations, seeds) *(pending review before SQL)*.
+- [`db/README.md`](db/README.md) — PostgreSQL schema (`001_schema.sql`), catalog seeds (`002_seed.sql`), and 3-day demo dataset (`003_demo_seed.sql`).
 
 ### Planning & Ground Rules (`.routing/`)
 - [`.routing/PROGRESS.md`](.routing/PROGRESS.md) — Current tasks, completed milestones, and upcoming work.
@@ -23,6 +23,8 @@ Resource Integration Gear provides an offline-first interface that gathers key h
 - [`.routing/SPECIFICATION.md`](.routing/SPECIFICATION.md) — Functional (`RF`) and non-functional (`RNF`) requirements *(maintained in Spanish until final delivery)*.
 - [`.routing/DOMAIN.md`](.routing/DOMAIN.md) — Ubiquitous Language glossary for metrics, severity states, crew roles, and anatomy.
 - [`.routing/DESIGN.md`](.routing/DESIGN.md) — UI/UX guidelines, status color/icon redundancy, and human-factors references.
+- [`.routing/BD.md`](.routing/BD.md) — PostgreSQL database design specification (tables, constraints, triggers, seed units/metrics).
+- [`.routing/BDML.md`](.routing/BDML.md) — DBML schema representation generated from `.routing/BD.md`.
 - [`.routing/INPUT.md`](.routing/INPUT.md) — Original NASA hackathon challenge brief and radiation monitoring notes.
 - [`.routing/reference/`](.routing/reference/) — Quick reference notes on each of NASA's five hazards of human spaceflight.
 
