@@ -916,7 +916,7 @@ const vitalRows = computed<VitalRow[]>(() => {
         <article
           v-for="row in vitalRows"
           :key="row.id"
-          class="hud-card overflow-hidden grid grid-cols-[minmax(0,1fr)_140px_28px] sm:grid-cols-[minmax(0,1fr)_168px_32px] min-h-22"
+          class="hud-card overflow-hidden grid grid-cols-[minmax(0,1fr)_140px_36px] sm:grid-cols-[minmax(0,1fr)_168px_44px] min-h-22"
           :class="cardFrameClass(row.status)"
         >
           <div class="bg-surface border-r border-solid border-lineDim flex flex-col justify-between min-w-0">
@@ -981,13 +981,13 @@ const vitalRows = computed<VitalRow[]>(() => {
 
           <button
             type="button"
-            class="flex items-end justify-center pb-2 cursor-pointer transition-colors hover:bg-surface hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line"
-            :class="cardSecondaryTextClass(row.status, 'text-dull')"
+            class="flex items-center justify-center border-l border-solid border-lineDim bg-surface/50 cursor-pointer transition-colors hover:bg-surface hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line"
+            :class="cardSecondaryTextClass(row.status, 'text-main')"
             :aria-label="`Open Medical Manual procedures for ${row.title}`"
             :title="`Open Medical Manual: ${row.title}`"
             @click="openMedicalManual(row.manualQuery)"
           >
-            <HelpCircle class="w-3.5 h-3.5" aria-hidden="true" />
+            <HelpCircle class="w-5 h-5" :stroke-width="2.2" aria-hidden="true" />
           </button>
         </article>
       </section>
