@@ -1,6 +1,8 @@
 # Project Progress
 
 ## Current Task
+- [ ] **Execute [`.tickets/006-integrate-sqlc/`](../.tickets/006-integrate-sqlc/task.md)** *(Draft — Ready to Dispatch)*
+  - `006`: Configure `sqlc.yaml` (`pgx/v5`), starter `db/queries/*.sql`, generated `server/internal/db/` bindings, and `wails3 task db:sqlc`.
 - [ ] **Design & Layer Backend Services, Models & Routes Incrementally** *(Next — starting from minimal `server/` Hello World baseline)*
   - Define domain interfaces/models/routes one slice at a time (aligned with `db/001_schema.sql`, `002_seed.sql`, and [`SENSOR-READINGS.md`](../SENSOR-READINGS.md)), then update and unblock [`.tickets/005-postgres-db-integration/`](../.tickets/005-postgres-db-integration/task.md).
 - [ ] **Reconcile [`SPECIFICATION.md`](SPECIFICATION.md) & [`DOMAIN.md`](DOMAIN.md) with Reduced DB Scope & [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)** *(Pending)*

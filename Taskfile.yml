@@ -48,6 +48,11 @@ tasks:
     cmds:
       - go run ./cmd/server
 
+  server:start:
+    cmds:
+      - task: server:build
+      - ./bin/hrig-server{{exeExt}}
+
   db:start:
     platforms: [windows]
     cmds:
@@ -67,3 +72,7 @@ tasks:
     platforms: [windows]
     cmds:
       - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig
+
+  db:sqlc:
+    cmds:
+      - sqlc generate

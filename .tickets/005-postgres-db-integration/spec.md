@@ -9,7 +9,7 @@ All checks must pass with binary Yes/No evidence.
 
 ## Schema Load & Automated Test Suite (`TEMP-DB-TESTING.md` + Enhancements)
 - [ ] `wails3 task db:migrate` and `wails3 task db:seed` exit `0` against `hrig`, and re-running `wails3 task db:seed` exits `0` without duplicating rows.
-- [ ] `HRIG_TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/hrig_test?sslmode=disable go test -v ./internal/store/...` inside `server/` exits `0` with zero skipped integration tests (`astronaut=3`, `metric=23`, `metric_threshold=23`, `measurement=15`, `measurement_value=117`, all triggers/constraints, `media_asset_mime`, `v_astronaut_age`, `trg_astronaut_updated_at`, `ON DELETE RESTRICT`, boundary thresholds, and `PostgresStore` round-trips all passing).
+- [ ] `HRIG_TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/hrig_test?sslmode=disable go test -v ./internal/store/...` inside `server/` exits `0` with zero skipped integration tests (`astronaut=3`, `metric=23`, `metric_threshold=23`, `measurement=15`, `measurement_value=117`, all triggers/constraints including separate nonexistent UUID FK checks on `astronaut_id`/`device_id`/`metric_id`/`unit_id`, `media_asset_mime`, `v_astronaut_age`, `trg_astronaut_updated_at`, `ON DELETE RESTRICT`, `GetThresholdByMetricCode("heart_rate")` + boundary thresholds, and `PostgresStore` round-trips all passing).
 - [ ] Disposable `hrig_test` database was dropped cleanly after verification (`psql -l` does not list `hrig_test`).
 
 ## Go API Integration & Offline Safety
