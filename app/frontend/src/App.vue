@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted } from "vue"
 import { RouterView, useRouter } from "vue-router"
 import DemoAlertStrip from "@/components/DemoAlertStrip.vue"
+import ViewNavBar from "@/components/ViewNavBar.vue"
 import WindowBar from "@/components/WindowBar.vue"
 import {
   TELEMETRY_STATUS_EVENT,
@@ -40,6 +41,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="min-h-screen w-full flex flex-col text-main">
     <WindowBar />
+    <ViewNavBar class="shrink-0" />
     <div class="flex-1 flex flex-col">
       <RouterView />
     </div>

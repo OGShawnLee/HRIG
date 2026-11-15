@@ -19,7 +19,7 @@ async function checkBridge() {
         Test Go Bridge ({{ status }})
       </button>
       <RouterLink :to="{ name: 'pagina-principal' }" class="button-side">
-        Open Crew Monitor
+        Home (Crew Monitor)
       </RouterLink>
     </div>
   </main>

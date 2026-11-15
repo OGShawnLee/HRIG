@@ -32,7 +32,21 @@ const currentStatusMeta = computed(() => STATUS_META[lastStatus.value])
 
     <div class="strip-actions">
       <button type="button" class="strip-btn strip-btn-neutral" @click="goToCrewOverview()">
-        Crew Overview
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 10.5L12 3l9 7.5" />
+          <path d="M5 9.5V20h5v-6h4v6h5V9.5" />
+        </svg>
+        <span>Home</span>
       </button>
       <button
         type="button"
@@ -129,6 +143,10 @@ const currentStatusMeta = computed(() => STATUS_META[lastStatus.value])
 
 .strip-btn {
   box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 32px;
   padding: 4px 10px;
   background: #0d121a;

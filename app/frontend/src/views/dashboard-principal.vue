@@ -21,7 +21,28 @@ watch(
 <template>
   <main class="dashboard" aria-label="Dashboard principal">
     <header class="dashboard-header">
-      <button type="button" class="back-btn" @click="goToCrewOverview">← Crew Overview</button>
+      <button
+        type="button"
+        class="back-btn"
+        aria-label="Return to Home"
+        @click="goToCrewOverview"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 10.5L12 3l9 7.5" />
+          <path d="M5 9.5V20h5v-6h4v6h5V9.5" />
+        </svg>
+        <span>Home</span>
+      </button>
       <h1>PRIMARY VITALS</h1>
       <div class="search-box">
         <span class="search-icon" aria-hidden="true">⌕</span>
@@ -131,6 +152,10 @@ watch(
 
 .back-btn {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid #8a8a8a;
   background: #0a0a0a;
   color: #f5f5f5;

@@ -12,18 +12,19 @@ const { openPrimaryVitals } = useTelemetryNavigation()
     </div>
 
     <section class="crew-grid" aria-label="Crew members">
-      <article class="crew-card">
+      <article
+        class="crew-card"
+        role="button"
+        tabindex="0"
+        aria-label="Open Sam Sonia primary vitals"
+        @click="openPrimaryVitals('sam')"
+        @keydown.enter.prevent="openPrimaryVitals('sam')"
+        @keydown.space.prevent="openPrimaryVitals('sam')"
+      >
         <div class="crew-heading">
-          <button
-            type="button"
-            class="crew-portrait-btn"
-            aria-label="Open Sam Sonia primary vitals"
-            @click="openPrimaryVitals('sam')"
-          >
-            <div class="crew-portrait portrait-sam" aria-hidden="true">
-              <span class="flag-stripe flag-blue" /><span class="flag-stripe flag-red" /><span class="flag-stripe flag-blue" />
-            </div>
-          </button>
+          <div class="crew-portrait">
+            <img class="crew-portrait-img" src="/crew/sam-sonia.jpg" alt="Sam Sonia" />
+          </div>
           <h2>Sam<br />Sonia</h2>
         </div>
         <dl class="vitals">
@@ -36,18 +37,19 @@ const { openPrimaryVitals } = useTelemetryNavigation()
         </dl>
       </article>
 
-      <article class="crew-card">
+      <article
+        class="crew-card"
+        role="button"
+        tabindex="0"
+        aria-label="Open Patrick Cuckburn primary vitals"
+        @click="openPrimaryVitals('patrick')"
+        @keydown.enter.prevent="openPrimaryVitals('patrick')"
+        @keydown.space.prevent="openPrimaryVitals('patrick')"
+      >
         <div class="crew-heading">
-          <button
-            type="button"
-            class="crew-portrait-btn"
-            aria-label="Open Patrick Cuckburn primary vitals"
-            @click="openPrimaryVitals('patrick')"
-          >
-            <div class="crew-portrait portrait-patrick" aria-hidden="true">
-              <span class="flag-stripe flag-blue" /><span class="flag-stripe flag-red" /><span class="flag-stripe flag-blue" />
-            </div>
-          </button>
+          <div class="crew-portrait">
+            <img class="crew-portrait-img" src="/crew/patrick-cuckburn.jpg" alt="Patrick Cuckburn" />
+          </div>
           <h2>Patrick<br />Cuckburn</h2>
         </div>
         <dl class="vitals">
@@ -133,6 +135,19 @@ const { openPrimaryVitals } = useTelemetryNavigation()
   border: 2px solid #ddd;
   border-radius: 10px;
   background: #050505;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.crew-card:hover {
+  border-color: #00a7ff;
+  background: #0a121e;
+}
+
+.crew-card:focus-visible {
+  outline: 2px solid #00a7ff;
+  outline-offset: 2px;
+  border-color: #00a7ff;
 }
 
 .crew-heading {
@@ -149,45 +164,24 @@ const { openPrimaryVitals } = useTelemetryNavigation()
   font-weight: 400;
 }
 
-.crew-portrait-btn {
-  flex: 0 0 auto;
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.crew-portrait-btn:focus-visible {
-  outline: 2px solid #00a7ff;
-  outline-offset: 2px;
-}
-
 .crew-portrait {
   position: relative;
   flex: 0 0 59px;
   width: 59px;
   height: 60px;
   overflow: hidden;
-  background: linear-gradient(145deg, #b9a283 12%, #54402e 13% 28%, #c4a786 29% 58%, #715134 59%);
-  box-shadow: inset 0 0 0 3px rgba(20, 45, 75, .75);
+  border-radius: 4px;
+  border: 1px solid #5b5b5b;
+  background: #0b1320;
 }
 
-.portrait-patrick {
-  background: linear-gradient(145deg, #c38b63 14%, #392b22 15% 29%, #b67b56 30% 62%, #4f3527 63%);
+.crew-portrait-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
 }
-
-.flag-stripe {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 18px;
-  opacity: .75;
-}
-
-.flag-blue { left: 0; background: #173b74; }
-.flag-red { left: 18px; background: #b51c24; }
-.flag-blue:last-child { left: 36px; }
 
 .vitals,
 .environment-values {
@@ -274,9 +268,6 @@ const { openPrimaryVitals } = useTelemetryNavigation()
   .crew-card { padding-inline: 8px; }
   .crew-heading { gap: 8px; }
   .crew-portrait { flex-basis: 48px; width: 48px; height: 52px; }
-  .flag-stripe { width: 15px; }
-  .flag-red { left: 15px; }
-  .flag-blue:last-child { left: 30px; }
   .bottom-grid { grid-template-columns: 90px minmax(0, 1fr); gap: 20px; }
 }
 
