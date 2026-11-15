@@ -31,33 +31,45 @@ export function GetConnectionStatus(): $CancellablePromise<$models.ConnectionSta
     });
 }
 
+export function GetHazards(q: string): $CancellablePromise<model$0.SpaceHazard[]> {
+    return $Call.ByID(1362364276, q).then(($result: any) => {
+        return $$createType5($result);
+    });
+}
+
 export function GetHealth(): $CancellablePromise<model$0.HealthStatus> {
     return $Call.ByID(14232937).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType6($result);
     });
 }
 
 export function GetHistory(query: model$0.HistoryQuery): $CancellablePromise<model$0.HistoryEntry[]> {
     return $Call.ByID(210907985, query).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType8($result);
     });
 }
 
 export function GetMetrics(): $CancellablePromise<model$0.Metric[]> {
     return $Call.ByID(208941472).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType10($result);
+    });
+}
+
+export function GetProcedures(q: string, category: string, metricCode: string): $CancellablePromise<model$0.MedicalProcedure[]> {
+    return $Call.ByID(4206464325, q, category, metricCode).then(($result: any) => {
+        return $$createType12($result);
     });
 }
 
 export function GetSnapshot(): $CancellablePromise<model$0.Snapshot> {
     return $Call.ByID(3917273495).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType13($result);
     });
 }
 
 export function GetTrends(query: model$0.TrendQuery): $CancellablePromise<model$0.TrendPoint[]> {
     return $Call.ByID(1496974439, query).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType15($result);
     });
 }
 
@@ -77,6 +89,12 @@ export function Ping(): $CancellablePromise<string> {
     return $Call.ByID(1003072145);
 }
 
+export function Search(q: string, tab: string): $CancellablePromise<model$0.SearchResults> {
+    return $Call.ByID(3097496321, q, tab).then(($result: any) => {
+        return $$createType16($result);
+    });
+}
+
 export function SetContext(): $CancellablePromise<void> {
     return $Call.ByID(3448947074);
 }
@@ -86,11 +104,16 @@ const $$createType0 = model$0.AlertEvent.createFrom;
 const $$createType1 = model$0.Astronaut.createFrom;
 const $$createType2 = $Create.Array($$createType1);
 const $$createType3 = $models.ConnectionState.createFrom;
-const $$createType4 = model$0.HealthStatus.createFrom;
-const $$createType5 = model$0.HistoryEntry.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = model$0.Metric.createFrom;
+const $$createType4 = model$0.SpaceHazard.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = model$0.HealthStatus.createFrom;
+const $$createType7 = model$0.HistoryEntry.createFrom;
 const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = model$0.Snapshot.createFrom;
-const $$createType10 = model$0.TrendPoint.createFrom;
-const $$createType11 = $Create.Array($$createType10);
+const $$createType9 = model$0.Metric.createFrom;
+const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = model$0.MedicalProcedure.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = model$0.Snapshot.createFrom;
+const $$createType14 = model$0.TrendPoint.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = model$0.SearchResults.createFrom;

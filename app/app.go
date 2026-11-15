@@ -163,6 +163,59 @@ func (a *App) AckAlert(alertID string, acknowledgedBy string) (model.AlertEvent,
 	return client.AckAlert(ctx, alertID, acknowledgedBy)
 }
 
+func (a *App) GetHazards(q string) ([]model.SpaceHazard, error) {
+	client, err := a.ensureClient()
+	if err != nil {
+		return []model.SpaceHazard{}, err
+	}
+	ctx, cancel := a.rpcContext()
+	defer cancel()
+	hazards, err := client.GetHazards(ctx, q)
+	if err != nil {
+		return []model.SpaceHazard{}, err
+	}
+	if hazards == nil {
+		return []model.SpaceHazard{}, nil
+	}
+	return hazards, nil
+}
+
+func (a *App) GetProcedures(q string, category string, metricCode string) ([]model.MedicalProcedure, error) {
+	client, err := a.ensureClient()
+	if err != nil {
+		return []model.MedicalProcedure{}, err
+	}
+	ctx, cancel := a.rpcContext()
+	defer cancel()
+	procedures, err := client.GetProcedures(ctx, q, category, metricCode)
+	if err != nil {
+		return []model.MedicalProcedure{}, err
+	}
+	if procedures == nil {
+		return []model.MedicalProcedure{}, nil
+	}
+	return procedures, nil
+}
+
+func (a *App) Search(q string, tab string) (model.SearchResults, error) {
+	client, err := a.ensureClient()
+	if err != nil {
+		var empty model.SearchResults
+		empty.Normalize()
+		return empty, err
+	}
+	ctx, cancel := a.rpcContext()
+	defer cancel()
+	results, err := client.Search(ctx, q, tab)
+	if err != nil {
+		var empty model.SearchResults
+		empty.Normalize()
+		return empty, err
+	}
+	results.Normalize()
+	return results, nil
+}
+
 func (a *App) ensureClient() (*apiClient, error) {
 	if a.initErr != nil {
 		return nil, a.initErr

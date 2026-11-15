@@ -30,12 +30,25 @@ function onTelemetryStatusEvent(event: Event) {
   dispatchTelemetryStatus(detail)
 }
 
+function onGlobalKeydown(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
+    event.preventDefault()
+    if (router.currentRoute.value.name === "search") {
+      window.dispatchEvent(new CustomEvent("hrig:focus-omnibox"))
+    } else {
+      void router.push({ name: "search" })
+    }
+  }
+}
+
 onMounted(() => {
   window.addEventListener(TELEMETRY_STATUS_EVENT, onTelemetryStatusEvent)
+  window.addEventListener("keydown", onGlobalKeydown)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener(TELEMETRY_STATUS_EVENT, onTelemetryStatusEvent)
+  window.removeEventListener("keydown", onGlobalKeydown)
 })
 </script>
 

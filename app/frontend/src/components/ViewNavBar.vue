@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, AlertTriangle, Home } from "lucide-vue-next"
+import { AlertCircle, AlertTriangle, Home, Search } from "lucide-vue-next"
 import { RouterLink, useRoute } from "vue-router"
 
 const route = useRoute()
@@ -18,6 +18,21 @@ const route = useRoute()
     >
       <Home class="w-3.5 h-3.5" aria-hidden="true" />
       <span>Home</span>
+    </RouterLink>
+
+    <RouterLink
+      :to="{ name: 'search' }"
+      class="button-side h-9 px-3 text-xs gap-1.5"
+      :class="{ 'bg-surface border-line text-main ring-1 ring-line': route.name === 'search' }"
+      aria-label="Search crew, medical procedures, hazards, and metrics (Ctrl+K)"
+    >
+      <Search class="w-3.5 h-3.5" aria-hidden="true" />
+      <span>Search</span>
+      <kbd
+        class="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-dull border border-solid border-lineDim rounded"
+      >
+        Ctrl+K
+      </kbd>
     </RouterLink>
 
     <RouterLink

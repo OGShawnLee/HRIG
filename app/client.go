@@ -286,6 +286,82 @@ func (c *apiClient) AckAlert(ctx context.Context, alertID, acknowledgedBy string
 	return out, nil
 }
 
+func (c *apiClient) GetHazards(ctx context.Context, q string) ([]model.SpaceHazard, error) {
+	params := url.Values{}
+	if trimmedQ := strings.TrimSpace(q); trimmedQ != "" {
+		params.Set("q", trimmedQ)
+	}
+
+	path := "/api/hazards"
+	if encoded := params.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+
+	var out []model.SpaceHazard
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []model.SpaceHazard{}
+	}
+	for i := range out {
+		out[i].Normalize()
+	}
+	return out, nil
+}
+
+func (c *apiClient) GetProcedures(ctx context.Context, q, category, metricCode string) ([]model.MedicalProcedure, error) {
+	params := url.Values{}
+	if trimmedQ := strings.TrimSpace(q); trimmedQ != "" {
+		params.Set("q", trimmedQ)
+	}
+	if trimmedCategory := strings.TrimSpace(category); trimmedCategory != "" {
+		params.Set("category", trimmedCategory)
+	}
+	if trimmedMetric := strings.TrimSpace(metricCode); trimmedMetric != "" {
+		params.Set("metric_code", trimmedMetric)
+	}
+
+	path := "/api/procedures"
+	if encoded := params.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+
+	var out []model.MedicalProcedure
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []model.MedicalProcedure{}
+	}
+	for i := range out {
+		out[i].Normalize()
+	}
+	return out, nil
+}
+
+func (c *apiClient) Search(ctx context.Context, q, tab string) (model.SearchResults, error) {
+	params := url.Values{}
+	if trimmedQ := strings.TrimSpace(q); trimmedQ != "" {
+		params.Set("q", trimmedQ)
+	}
+	if trimmedTab := strings.TrimSpace(tab); trimmedTab != "" {
+		params.Set("tab", trimmedTab)
+	}
+
+	path := "/api/search"
+	if encoded := params.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+
+	var out model.SearchResults
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return model.SearchResults{}, err
+	}
+	out.Normalize()
+	return out, nil
+}
+
 func (c *apiClient) doJSON(ctx context.Context, method, path string, reqBody any, respOut any) error {
 	if ctx == nil {
 		ctx = context.Background()

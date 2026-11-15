@@ -137,6 +137,20 @@ export enum EnvironmentMode {
 };
 
 /**
+ * EscalationLevel indicates the clinical escalation tier for a medical procedure.
+ */
+export enum EscalationLevel {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    EscalationSelfCare = "self_care",
+    EscalationCMO = "cmo",
+    EscalationFlightSurgeon = "flight_surgeon",
+};
+
+/**
  * HealthStatus represents the API health payload returned by GET /health.
  */
 export class HealthStatus {
@@ -369,6 +383,119 @@ export enum MediaKind {
 };
 
 /**
+ * MedicalProcedure represents an operational space medicine checklist or measurement guide.
+ */
+export class MedicalProcedure {
+    "id": string;
+    "code": string;
+    "title": string;
+    "category": string;
+    "bodySystem": string;
+    "summary": string;
+    "whenToUse": string;
+    "escalation": EscalationLevel;
+    "estimatedMinutes": number;
+    "environment"?: EnvironmentMode | null;
+    "equipment": string[];
+    "steps": string[];
+    "warnings": string[];
+    "relatedMetricCodes": string[];
+    "hazardCodes": string[];
+    "keywords": string[];
+    "source": string;
+    "displayOrder": number;
+
+    /** Creates a new MedicalProcedure instance. */
+    constructor($$source: Partial<MedicalProcedure> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("code" in $$source)) {
+            this["code"] = "";
+        }
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("category" in $$source)) {
+            this["category"] = "";
+        }
+        if (!("bodySystem" in $$source)) {
+            this["bodySystem"] = "";
+        }
+        if (!("summary" in $$source)) {
+            this["summary"] = "";
+        }
+        if (!("whenToUse" in $$source)) {
+            this["whenToUse"] = "";
+        }
+        if (!("escalation" in $$source)) {
+            this["escalation"] = EscalationLevel.$zero;
+        }
+        if (!("estimatedMinutes" in $$source)) {
+            this["estimatedMinutes"] = 0;
+        }
+        if (!("equipment" in $$source)) {
+            this["equipment"] = [];
+        }
+        if (!("steps" in $$source)) {
+            this["steps"] = [];
+        }
+        if (!("warnings" in $$source)) {
+            this["warnings"] = [];
+        }
+        if (!("relatedMetricCodes" in $$source)) {
+            this["relatedMetricCodes"] = [];
+        }
+        if (!("hazardCodes" in $$source)) {
+            this["hazardCodes"] = [];
+        }
+        if (!("keywords" in $$source)) {
+            this["keywords"] = [];
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+        if (!("displayOrder" in $$source)) {
+            this["displayOrder"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MedicalProcedure instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MedicalProcedure {
+        const $$createField10_0 = $$createType0;
+        const $$createField11_0 = $$createType0;
+        const $$createField12_0 = $$createType0;
+        const $$createField13_0 = $$createType0;
+        const $$createField14_0 = $$createType0;
+        const $$createField15_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("equipment" in $$parsedSource) {
+            $$parsedSource["equipment"] = $$createField10_0($$parsedSource["equipment"]);
+        }
+        if ("steps" in $$parsedSource) {
+            $$parsedSource["steps"] = $$createField11_0($$parsedSource["steps"]);
+        }
+        if ("warnings" in $$parsedSource) {
+            $$parsedSource["warnings"] = $$createField12_0($$parsedSource["warnings"]);
+        }
+        if ("relatedMetricCodes" in $$parsedSource) {
+            $$parsedSource["relatedMetricCodes"] = $$createField13_0($$parsedSource["relatedMetricCodes"]);
+        }
+        if ("hazardCodes" in $$parsedSource) {
+            $$parsedSource["hazardCodes"] = $$createField14_0($$parsedSource["hazardCodes"]);
+        }
+        if ("keywords" in $$parsedSource) {
+            $$parsedSource["keywords"] = $$createField15_0($$parsedSource["keywords"]);
+        }
+        return new MedicalProcedure($$parsedSource as Partial<MedicalProcedure>);
+    }
+}
+
+/**
  * Metric represents a cataloged physiological (metric_type=1) or environmental (metric_type=2) metric.
  */
 export class Metric {
@@ -429,7 +556,7 @@ export class Metric {
      * Creates a new Metric instance from a string or object.
      */
     static createFrom($$source: any = {}): Metric {
-        const $$createField18_0 = $$createType1;
+        const $$createField18_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("threshold" in $$parsedSource) {
             $$parsedSource["threshold"] = $$createField18_0($$parsedSource["threshold"]);
@@ -540,10 +667,10 @@ export class RealtimeEnvelope {
      * Creates a new RealtimeEnvelope instance from a string or object.
      */
     static createFrom($$source: any = {}): RealtimeEnvelope {
-        const $$createField1_0 = $$createType3;
-        const $$createField2_0 = $$createType5;
-        const $$createField3_0 = $$createType6;
-        const $$createField4_0 = $$createType7;
+        const $$createField1_0 = $$createType4;
+        const $$createField2_0 = $$createType6;
+        const $$createField3_0 = $$createType7;
+        const $$createField4_0 = $$createType8;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("readings" in $$parsedSource) {
             $$parsedSource["readings"] = $$createField1_0($$parsedSource["readings"]);
@@ -558,6 +685,66 @@ export class RealtimeEnvelope {
             $$parsedSource["alert"] = $$createField4_0($$parsedSource["alert"]);
         }
         return new RealtimeEnvelope($$parsedSource as Partial<RealtimeEnvelope>);
+    }
+}
+
+/**
+ * SearchResults represents the unified cross-entity search payload returned by GET /api/search.
+ */
+export class SearchResults {
+    "query": string;
+    "tab": string;
+    "astronauts": Astronaut[];
+    "procedures": MedicalProcedure[];
+    "hazards": SpaceHazard[];
+    "metrics": Metric[];
+
+    /** Creates a new SearchResults instance. */
+    constructor($$source: Partial<SearchResults> = {}) {
+        if (!("query" in $$source)) {
+            this["query"] = "";
+        }
+        if (!("tab" in $$source)) {
+            this["tab"] = "";
+        }
+        if (!("astronauts" in $$source)) {
+            this["astronauts"] = [];
+        }
+        if (!("procedures" in $$source)) {
+            this["procedures"] = [];
+        }
+        if (!("hazards" in $$source)) {
+            this["hazards"] = [];
+        }
+        if (!("metrics" in $$source)) {
+            this["metrics"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SearchResults instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SearchResults {
+        const $$createField2_0 = $$createType10;
+        const $$createField3_0 = $$createType12;
+        const $$createField4_0 = $$createType14;
+        const $$createField5_0 = $$createType16;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("astronauts" in $$parsedSource) {
+            $$parsedSource["astronauts"] = $$createField2_0($$parsedSource["astronauts"]);
+        }
+        if ("procedures" in $$parsedSource) {
+            $$parsedSource["procedures"] = $$createField3_0($$parsedSource["procedures"]);
+        }
+        if ("hazards" in $$parsedSource) {
+            $$parsedSource["hazards"] = $$createField4_0($$parsedSource["hazards"]);
+        }
+        if ("metrics" in $$parsedSource) {
+            $$parsedSource["metrics"] = $$createField5_0($$parsedSource["metrics"]);
+        }
+        return new SearchResults($$parsedSource as Partial<SearchResults>);
     }
 }
 
@@ -588,8 +775,8 @@ export class Snapshot {
      * Creates a new Snapshot instance from a string or object.
      */
     static createFrom($$source: any = {}): Snapshot {
-        const $$createField0_0 = $$createType3;
-        const $$createField1_0 = $$createType5;
+        const $$createField0_0 = $$createType4;
+        const $$createField1_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("readings" in $$parsedSource) {
             $$parsedSource["readings"] = $$createField0_0($$parsedSource["readings"]);
@@ -598,6 +785,62 @@ export class Snapshot {
             $$parsedSource["alerts"] = $$createField1_0($$parsedSource["alerts"]);
         }
         return new Snapshot($$parsedSource as Partial<Snapshot>);
+    }
+}
+
+/**
+ * SpaceHazard represents one of NASA's five human spaceflight hazards.
+ */
+export class SpaceHazard {
+    "id": string;
+    "code": string;
+    "name": string;
+    "summary": string;
+    "clinicalImpact": string;
+    "relatedMetricCodes": string[];
+    "source": string;
+    "displayOrder": number;
+
+    /** Creates a new SpaceHazard instance. */
+    constructor($$source: Partial<SpaceHazard> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("code" in $$source)) {
+            this["code"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("summary" in $$source)) {
+            this["summary"] = "";
+        }
+        if (!("clinicalImpact" in $$source)) {
+            this["clinicalImpact"] = "";
+        }
+        if (!("relatedMetricCodes" in $$source)) {
+            this["relatedMetricCodes"] = [];
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+        if (!("displayOrder" in $$source)) {
+            this["displayOrder"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SpaceHazard instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SpaceHazard {
+        const $$createField5_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("relatedMetricCodes" in $$parsedSource) {
+            $$parsedSource["relatedMetricCodes"] = $$createField5_0($$parsedSource["relatedMetricCodes"]);
+        }
+        return new SpaceHazard($$parsedSource as Partial<SpaceHazard>);
     }
 }
 
@@ -708,11 +951,20 @@ export enum ValueType {
 };
 
 // Private type creation functions
-const $$createType0 = MetricThreshold.createFrom;
-const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = LatestReading.createFrom;
-const $$createType3 = $Create.Array($$createType2);
-const $$createType4 = AlertEvent.createFrom;
-const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = $Create.Nullable($$createType2);
-const $$createType7 = $Create.Nullable($$createType4);
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = MetricThreshold.createFrom;
+const $$createType2 = $Create.Nullable($$createType1);
+const $$createType3 = LatestReading.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = AlertEvent.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = $Create.Nullable($$createType3);
+const $$createType8 = $Create.Nullable($$createType5);
+const $$createType9 = Astronaut.createFrom;
+const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = MedicalProcedure.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = SpaceHazard.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = Metric.createFrom;
+const $$createType16 = $Create.Array($$createType15);

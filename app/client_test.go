@@ -605,6 +605,190 @@ func TestServiceStartupNonBlockingAndShutdown(t *testing.T) {
 	}
 }
 
+func TestAppSearchManualBindings(t *testing.T) {
+	now := time.Date(2026, 11, 15, 21, 10, 0, 0, time.UTC)
+	astroID := "11111111-1111-1111-1111-111111111111"
+	envIVA := model.EnvIVA
+	unitCode := "%"
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/hazards", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Fatalf("unexpected method %s", r.Method)
+		}
+		q := r.URL.Query().Get("q")
+		if q == "null_slices" {
+			// Ensure nil slices from server normalize to non-nil empty slices.
+			_, _ = w.Write([]byte(`[{"id":"h-null","code":"null_test","name":"Null Test","summary":"s","clinicalImpact":"c","relatedMetricCodes":null,"source":"NASA","displayOrder":1}]`))
+			return
+		}
+		if q != "cabin o2 & co2" {
+			t.Fatalf("hazards q = %q, want %q (rawQuery=%q)", q, "cabin o2 & co2", r.URL.RawQuery)
+		}
+		if !strings.Contains(r.URL.RawQuery, "q=cabin+o2+%26+co2") {
+			t.Fatalf("hazards raw query not properly escaped: %q", r.URL.RawQuery)
+		}
+		writeTestJSON(t, w, http.StatusOK, []model.SpaceHazard{
+			{
+				ID:                 "haz-1",
+				Code:               "hostile_closed_env",
+				Name:               "Hostile / Closed Environments",
+				Summary:            "Self-contained spacecraft ecosystems.",
+				ClinicalImpact:     "Requires continuous dual monitoring.",
+				RelatedMetricCodes: []string{"cabin_o2", "cabin_ppco2"},
+				Source:             "NASA HRP Five Hazards",
+				DisplayOrder:       5,
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/procedures", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Fatalf("unexpected method %s", r.Method)
+		}
+		params := r.URL.Query()
+		if params.Get("q") != "air hunger / spo2" ||
+			params.Get("category") != "respiratory_cabin" ||
+			params.Get("metric_code") != "cabin_o2" {
+			t.Fatalf("unexpected procedures query params: %v (raw=%q)", params, r.URL.RawQuery)
+		}
+		writeTestJSON(t, w, http.StatusOK, []model.MedicalProcedure{
+			{
+				ID:                 "proc-1",
+				Code:               "hypoxia_cabin_o2",
+				Title:              "Hypoxia & Low Cabin O2 Response",
+				Category:           "respiratory_cabin",
+				BodySystem:         "respiratory",
+				Summary:            "Operational checklist to verify cabin oxygen delivery.",
+				WhenToUse:          "When cabin O2 drops or crew SpO2 trends downward.",
+				Escalation:         model.EscalationCMO,
+				EstimatedMinutes:   10,
+				Environment:        &envIVA,
+				Equipment:          []string{"Pulse oximeter"},
+				Steps:              []string{"Cross-check cabin O2 sensor telemetry."},
+				Warnings:           []string{"Escalate immediately to Flight Surgeon if cyanosis occurs."},
+				RelatedMetricCodes: []string{"cabin_o2", "spo2"},
+				HazardCodes:        []string{"hostile_closed_env"},
+				Keywords:           []string{"hypoxia"},
+				Source:             "NASA HRP / ISS Operational Checklist",
+				DisplayOrder:       1,
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/search", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Fatalf("unexpected method %s", r.Method)
+		}
+		params := r.URL.Query()
+		tab := params.Get("tab")
+		if tab == "invalid" {
+			writeTestJSON(t, w, http.StatusBadRequest, map[string]string{
+				"error": `invalid tab "invalid"`,
+			})
+			return
+		}
+		if params.Get("q") != "hypoxia & o2" || tab != "hazards_metrics" {
+			t.Fatalf("unexpected search query params: %v (raw=%q)", params, r.URL.RawQuery)
+		}
+		if !strings.Contains(r.URL.RawQuery, "q=hypoxia+%26+o2") {
+			t.Fatalf("search raw query not properly escaped: %q", r.URL.RawQuery)
+		}
+		writeTestJSON(t, w, http.StatusOK, model.SearchResults{
+			Query: "hypoxia & o2",
+			Tab:   "hazards_metrics",
+			Astronauts: []model.Astronaut{
+				{
+					ID:              astroID,
+					FullName:        "Sam Sonia",
+					BirthDate:       time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
+					Age:             36,
+					NationalityCode: "US",
+					IsActive:        true,
+					CreatedAt:       now,
+					UpdatedAt:       now,
+				},
+			},
+			Procedures: nil, // verify Normalize() converts nil to empty slice
+			Hazards: []model.SpaceHazard{
+				{
+					ID:                 "haz-1",
+					Code:               "hostile_closed_env",
+					Name:               "Hostile / Closed Environments",
+					Summary:            "Self-contained ecosystems.",
+					ClinicalImpact:     "Continuous monitoring.",
+					RelatedMetricCodes: nil, // verify nested Normalize()
+					Source:             "NASA HRP Five Hazards",
+					DisplayOrder:       5,
+				},
+			},
+			Metrics: []model.Metric{
+				{
+					ID:             "met-1",
+					Code:           "spo2",
+					Name:           "Blood Oxygen Saturation",
+					Category:       "respiratory",
+					Tier:           model.TierPrimary,
+					MetricType:     1,
+					ValueType:      model.ValueNumeric,
+					BaseUnitCode:   &unitCode,
+					BaseUnitSymbol: &unitCode,
+					DisplayOrder:   1,
+					IsActive:       true,
+				},
+			},
+		})
+	})
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	t.Setenv("HRIG_API_URL", srv.URL)
+	a := NewApp()
+
+	hazards, err := a.GetHazards("  cabin o2 & co2  ")
+	if err != nil {
+		t.Fatalf("GetHazards failed: %v", err)
+	}
+	if len(hazards) != 1 || hazards[0].Code != "hostile_closed_env" || len(hazards[0].RelatedMetricCodes) != 2 {
+		t.Fatalf("unexpected hazards: %+v", hazards)
+	}
+
+	nullHazards, err := a.GetHazards("null_slices")
+	if err != nil {
+		t.Fatalf("GetHazards(null_slices) failed: %v", err)
+	}
+	if len(nullHazards) != 1 || nullHazards[0].RelatedMetricCodes == nil {
+		t.Fatalf("expected non-nil normalized slice on hazard, got %+v", nullHazards)
+	}
+
+	procs, err := a.GetProcedures("air hunger / spo2", "respiratory_cabin", "cabin_o2")
+	if err != nil {
+		t.Fatalf("GetProcedures failed: %v", err)
+	}
+	if len(procs) != 1 || procs[0].Code != "hypoxia_cabin_o2" || procs[0].Escalation != model.EscalationCMO {
+		t.Fatalf("unexpected procedures: %+v", procs)
+	}
+
+	searchRes, err := a.Search("hypoxia & o2", "hazards_metrics")
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
+	}
+	if searchRes.Tab != "hazards_metrics" || len(searchRes.Astronauts) != 1 || len(searchRes.Hazards) != 1 || len(searchRes.Metrics) != 1 {
+		t.Fatalf("unexpected search results: %+v", searchRes)
+	}
+	if searchRes.Procedures == nil {
+		t.Fatal("expected normalized non-nil Procedures slice")
+	}
+	if searchRes.Hazards[0].RelatedMetricCodes == nil {
+		t.Fatal("expected normalized non-nil RelatedMetricCodes slice on hazard")
+	}
+
+	if _, err := a.Search("", "invalid"); err == nil || !strings.Contains(err.Error(), "invalid tab") {
+		t.Fatalf("expected 400 error message from Search, got %v", err)
+	}
+}
+
 func writeTestJSON(t *testing.T, w http.ResponseWriter, status int, v any) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
