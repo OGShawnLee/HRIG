@@ -7,12 +7,25 @@ import {
   type FormattedMetric,
   type TelemetryDisplayStatus,
 } from "@/composables/useTelemetry"
+import { useTelemetryNavigation } from "@/composables/useTelemetryNavigation"
 
 const props = defineProps<{
   astronaut: Astronaut
 }>()
 
 const { metricsByCode, getCrewReading, formatMetricValue, formatBloodPressure } = useTelemetry()
+const { openPrimaryVitals } = useTelemetryNavigation()
+
+const portraitUrl = computed(() => {
+  const lowerName = props.astronaut.fullName.toLowerCase()
+  if (lowerName.includes("sam sonia")) {
+    return "/crew/sam-sonia.jpg"
+  }
+  if (lowerName.includes("patrick")) {
+    return "/crew/patrick-cuckburn.jpg"
+  }
+  return null
+})
 
 const nameLines = computed(() => {
   const parts = props.astronaut.fullName.trim().split(/\s+/).filter(Boolean)
@@ -96,8 +109,13 @@ function statusLabel(status: TelemetryDisplayStatus): string {
 
 <template>
   <article
-    class="hud-card p-6 flex flex-col gap-5"
-    :aria-label="`Crew member ${astronaut.fullName}`"
+    class="hud-card p-6 flex flex-col gap-5 cursor-pointer transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line"
+    role="button"
+    tabindex="0"
+    :aria-label="`Open ${astronaut.fullName} primary vitals`"
+    @click="openPrimaryVitals(astronaut)"
+    @keydown.enter.prevent="openPrimaryVitals(astronaut)"
+    @keydown.space.prevent="openPrimaryVitals(astronaut)"
   >
     <div class="flex items-center gap-5">
       <!-- Offline-first NASA-inspired crew portrait badge -->
@@ -105,25 +123,33 @@ function statusLabel(status: TelemetryDisplayStatus): string {
         class="w-22 h-24 shrink-0 rounded-lg overflow-hidden border border-solid border-lineDim bg-[#0B1726] relative flex items-center justify-center select-none"
         aria-hidden="true"
       >
-        <svg viewBox="0 0 88 96" class="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="88" height="96" fill="#0B1726" />
-          <!-- Subtle mission backdrop stripes & agency seal -->
-          <rect x="0" y="14" width="18" height="4" fill="#991B1B" opacity="0.65" />
-          <rect x="0" y="22" width="18" height="4" fill="#E5E7EB" opacity="0.45" />
-          <rect x="0" y="30" width="18" height="4" fill="#991B1B" opacity="0.65" />
-          <rect x="0" y="38" width="18" height="4" fill="#E5E7EB" opacity="0.45" />
-          <circle cx="72" cy="30" r="14" stroke="#60A5FA" stroke-opacity="0.45" stroke-width="1.5" fill="#1E3A8A" fill-opacity="0.35" />
-          <path d="M64 30 L80 30 M72 22 L72 38" stroke="#93C5FD" stroke-opacity="0.45" stroke-width="1" />
-          <!-- Crew silhouette in blue mission polo -->
-          <path d="M16 96 C16 74 28 66 44 66 C60 66 72 74 72 96 Z" fill="#1D4ED8" />
-          <path d="M35 66 L44 76 L53 66" stroke="#93C5FD" stroke-width="1.5" fill="#1E40AF" />
-          <circle cx="44" cy="40" r="16" fill="#1E293B" stroke="#94A3B8" stroke-width="1.5" />
-        </svg>
-        <span
-          class="absolute top-[29px] text-sm font-bold tracking-wide text-main"
-        >
-          {{ initials }}
-        </span>
+        <img
+          v-if="portraitUrl"
+          :src="portraitUrl"
+          :alt="astronaut.fullName"
+          class="w-full h-full object-cover object-top"
+        />
+        <template v-else>
+          <svg viewBox="0 0 88 96" class="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="88" height="96" fill="#0B1726" />
+            <!-- Subtle mission backdrop stripes & agency seal -->
+            <rect x="0" y="14" width="18" height="4" fill="#991B1B" opacity="0.65" />
+            <rect x="0" y="22" width="18" height="4" fill="#E5E7EB" opacity="0.45" />
+            <rect x="0" y="30" width="18" height="4" fill="#991B1B" opacity="0.65" />
+            <rect x="0" y="38" width="18" height="4" fill="#E5E7EB" opacity="0.45" />
+            <circle cx="72" cy="30" r="14" stroke="#60A5FA" stroke-opacity="0.45" stroke-width="1.5" fill="#1E3A8A" fill-opacity="0.35" />
+            <path d="M64 30 L80 30 M72 22 L72 38" stroke="#93C5FD" stroke-opacity="0.45" stroke-width="1" />
+            <!-- Crew silhouette in blue mission polo -->
+            <path d="M16 96 C16 74 28 66 44 66 C60 66 72 74 72 96 Z" fill="#1D4ED8" />
+            <path d="M35 66 L44 76 L53 66" stroke="#93C5FD" stroke-width="1.5" fill="#1E40AF" />
+            <circle cx="44" cy="40" r="16" fill="#1E293B" stroke="#94A3B8" stroke-width="1.5" />
+          </svg>
+          <span
+            class="absolute top-[29px] text-sm font-bold tracking-wide text-main"
+          >
+            {{ initials }}
+          </span>
+        </template>
         <span
           v-if="astronaut.nationalityCode"
           class="absolute bottom-1.5 right-1.5 text-[10px] font-semibold tracking-wider px-1.5 py-0.5 rounded bg-ground/80 text-side border border-solid border-lineDim"

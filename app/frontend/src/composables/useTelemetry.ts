@@ -16,6 +16,10 @@ import {
   type Metric,
   type RealtimeEnvelope,
 } from "@bindings/hrig/shared/model/models.js"
+import {
+  dispatchTelemetryStatus,
+  type NavReadingStatus,
+} from "@/composables/useTelemetryNavigation"
 
 export type TelemetryDisplayStatus = ReadingStatus | "unknown"
 
@@ -97,6 +101,28 @@ function upsertAlert(alert: AlertEvent | null | undefined): void {
   }
 }
 
+function toNavStatus(status: TelemetryDisplayStatus): NavReadingStatus | null {
+  switch (status) {
+    case ReadingStatus.StatusNormal:
+      return "normal"
+    case ReadingStatus.StatusAbnormal:
+      return "abnormal"
+    case ReadingStatus.StatusCritical:
+      return "critical"
+    case ReadingStatus.StatusStale:
+      return "stale"
+    default:
+      return null
+  }
+}
+
+function resolveAstronautName(astronautId: string | null | undefined): string | undefined {
+  if (!astronautId) {
+    return undefined
+  }
+  return astronauts.value.find((item) => item.id === astronautId)?.fullName
+}
+
 function handleEnvelope(envelope: RealtimeEnvelope | null | undefined): void {
   if (!envelope) {
     return
@@ -116,6 +142,26 @@ function handleEnvelope(envelope: RealtimeEnvelope | null | undefined): void {
           upsertReading(item)
         }
       }
+      if (envelope.type === "reading" && envelope.reading) {
+        const navStatus = toNavStatus(resolveReadingStatus(envelope.reading))
+        if (navStatus === "abnormal" || navStatus === "critical") {
+          const formatted = formatMetricValue(
+            envelope.reading,
+            metricsByCode.value[envelope.reading.metricCode],
+          )
+          dispatchTelemetryStatus({
+            status: navStatus,
+            astronautId: envelope.reading.astronautId ?? undefined,
+            astronautName: resolveAstronautName(envelope.reading.astronautId),
+            metricCode: envelope.reading.metricCode,
+            source: envelope.reading.source,
+            deviceCode: envelope.reading.deviceCode,
+            valueDisplay: formatted.display,
+            met: envelope.reading.met,
+            timestampUtc: envelope.reading.recordedAtUtc,
+          })
+        }
+      }
       lastUpdatedUtc.value =
         envelope.sentAtUtc && envelope.sentAtUtc !== ""
           ? envelope.sentAtUtc
@@ -124,6 +170,22 @@ function handleEnvelope(envelope: RealtimeEnvelope | null | undefined): void {
     case "alert":
     case "alert_ack":
       upsertAlert(envelope.alert)
+      if (envelope.type === "alert" && envelope.alert && !envelope.alert.acknowledged) {
+        const navStatus = toNavStatus(envelope.alert.status)
+        if (navStatus === "abnormal" || navStatus === "critical") {
+          dispatchTelemetryStatus({
+            status: navStatus,
+            astronautId: envelope.alert.astronautId ?? undefined,
+            astronautName: resolveAstronautName(envelope.alert.astronautId),
+            metricCode: envelope.alert.metricCode,
+            source: envelope.alert.source,
+            deviceCode: envelope.alert.deviceCode,
+            message: envelope.alert.message,
+            met: envelope.alert.met,
+            timestampUtc: envelope.alert.triggeredAtUtc,
+          })
+        }
+      }
       if (envelope.sentAtUtc) {
         lastUpdatedUtc.value = envelope.sentAtUtc
       }
