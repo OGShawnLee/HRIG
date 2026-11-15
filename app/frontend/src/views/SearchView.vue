@@ -112,11 +112,27 @@ function metricKey(m: Metric): string {
   return `metric:${m.code}`
 }
 
+type ResultGroupKind = "crew" | "metrics" | "procedures" | "hazards"
+
+const hasActiveQuery = computed<boolean>(() => query.value.trim().length > 0)
+
+const visibleGroupOrder = computed<ResultGroupKind[]>(() =>
+  hasActiveQuery.value
+    ? ["crew", "metrics", "procedures", "hazards"]
+    : ["crew", "procedures", "hazards", "metrics"],
+)
+
 const entriesByKey = computed<Map<string, FeaturedEntry>>(() => {
   const map = new Map<string, FeaturedEntry>()
   for (const astronaut of results.value.astronauts) {
     const key = crewKey(astronaut)
     map.set(key, { kind: "crew", key, astronaut })
+  }
+  if (hasActiveQuery.value) {
+    for (const metric of results.value.metrics) {
+      const key = metricKey(metric)
+      map.set(key, { kind: "metric", key, metric })
+    }
   }
   for (const procedure of results.value.procedures) {
     const key = procKey(procedure)
@@ -126,9 +142,11 @@ const entriesByKey = computed<Map<string, FeaturedEntry>>(() => {
     const key = hazardKey(hazard)
     map.set(key, { kind: "hazard", key, hazard })
   }
-  for (const metric of results.value.metrics) {
-    const key = metricKey(metric)
-    map.set(key, { kind: "metric", key, metric })
+  if (!hasActiveQuery.value) {
+    for (const metric of results.value.metrics) {
+      const key = metricKey(metric)
+      map.set(key, { kind: "metric", key, metric })
+    }
   }
   return map
 })
@@ -397,25 +415,34 @@ function crewStatusSummary(astronaut: Astronaut): {
   }
 }
 
-function metricLiveSummary(metric: Metric): {
+interface MetricLiveRow {
+  key: string
+  label: string
   display: string
   status: TelemetryDisplayStatus
-} {
+}
+
+function metricLiveRows(metric: Metric): MetricLiveRow[] {
   if (metric.metricType === 2) {
-    return formatMetricValue(getEnvReading(metric.code), metric)
+    const formatted = formatMetricValue(getEnvReading(metric.code), metric)
+    return [
+      {
+        key: "env",
+        label: "Cabin / Suit",
+        display: formatted.display,
+        status: formatted.status,
+      },
+    ]
   }
-  let worst: TelemetryDisplayStatus = "unknown"
-  let firstDisplay = "—"
-  for (const astro of activeAstronauts.value) {
+  return activeAstronauts.value.map((astro) => {
     const formatted = formatMetricValue(getCrewReading(astro.id, metric.code), metric)
-    if (firstDisplay === "—" && formatted.display !== "—") {
-      firstDisplay = formatted.display
+    return {
+      key: astro.id,
+      label: astro.fullName,
+      display: formatted.display,
+      status: formatted.status,
     }
-    if (STATUS_PRIORITY[formatted.status] > STATUS_PRIORITY[worst]) {
-      worst = formatted.status
-    }
-  }
-  return { display: firstDisplay, status: worst }
+  })
 }
 
 function statusTextClass(status: TelemetryDisplayStatus): string {
@@ -477,10 +504,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="flex-1 w-full bg-ground text-main px-4 sm:px-6 py-4 sm:py-6 flex flex-col min-h-0">
+  <main class="font-sans flex-1 w-full bg-ground text-main px-4 sm:px-6 py-4 sm:py-6 flex flex-col min-h-0">
     <div
       ref="omniboxContainerRef"
-      class="max-w-6xl w-full mx-auto border border-solid border-line bg-ground flex flex-col flex-1 min-h-[540px]"
+      class="max-w-6xl w-full mx-auto rounded-2xl overflow-hidden border border-solid border-line bg-ground flex flex-col flex-1 min-h-[540px]"
     >
       <ComboboxRoot
         :model-value="selectedKey"
@@ -501,7 +528,7 @@ onBeforeUnmount(() => {
             type="text"
             aria-label="Search crew, medical procedures, hazards, or metrics"
             placeholder="Search crew, medical procedures, hazards, or metrics..."
-            class="flex-1 min-w-0 bg-ground text-main placeholder-dull text-sm sm:text-base font-medium focus:outline-none"
+            class="font-sans flex-1 min-w-0 bg-ground text-main placeholder-dull text-sm sm:text-base font-medium focus:outline-none"
             @keydown.escape.prevent="closeSearch"
           />
 
@@ -516,7 +543,7 @@ onBeforeUnmount(() => {
             type="button"
             aria-label="Clear search query"
             title="Clear query"
-            class="p-1 text-side hover:text-main hover:bg-surface transition-colors cursor-pointer shrink-0"
+            class="font-sans p-1 rounded-lg text-side hover:text-main hover:bg-surface transition-colors cursor-pointer shrink-0"
             @click="clearQuery"
           >
             <X class="w-4 h-4" aria-hidden="true" />
@@ -525,7 +552,7 @@ onBeforeUnmount(() => {
           <span class="w-px h-5 bg-lineDim shrink-0" aria-hidden="true" />
 
           <kbd
-            class="hidden sm:inline-flex items-center px-2 py-0.5 text-[11px] font-medium text-dull border border-solid border-lineDim shrink-0"
+            class="font-sans hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium text-dull border border-solid border-lineDim shrink-0"
           >
             Ctrl + K
           </kbd>
@@ -533,7 +560,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             aria-label="Close search"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-side border border-solid border-lineDim hover:border-line hover:text-main transition-colors cursor-pointer shrink-0"
+            class="font-sans inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium text-side border border-solid border-lineDim hover:border-line hover:text-main transition-colors cursor-pointer shrink-0"
             @click="closeSearch"
           >
             <span>Close</span>
@@ -552,7 +579,7 @@ onBeforeUnmount(() => {
             type="button"
             role="tab"
             :aria-selected="activeTab === tab.id"
-            class="px-3 py-1.5 text-xs border border-solid transition-colors cursor-pointer"
+            class="font-sans px-3 py-1.5 rounded-xl text-xs border border-solid transition-colors cursor-pointer"
             :class="
               activeTab === tab.id
                 ? 'bg-main text-ground border-line font-semibold'
@@ -576,7 +603,7 @@ onBeforeUnmount(() => {
           </div>
           <button
             type="button"
-            class="px-2.5 py-1 border border-solid border-lineDim text-main hover:border-line transition-colors cursor-pointer shrink-0"
+            class="font-sans px-2.5 py-1 rounded-lg border border-solid border-lineDim text-main hover:border-line transition-colors cursor-pointer shrink-0"
             @click="executeSearch(query, activeTab)"
           >
             Retry
@@ -611,250 +638,268 @@ onBeforeUnmount(() => {
               @interact-outside.prevent
             >
               <ComboboxViewport class="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
-                <!-- Crew Group -->
-                <ComboboxGroup
-                  v-if="results.astronauts.length > 0"
-                  class="flex flex-col gap-2"
-                >
-                  <ComboboxLabel
-                    class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-dull pb-1 border-b border-solid border-lineDim"
+                <template v-for="group in visibleGroupOrder" :key="group">
+                  <!-- Crew Group -->
+                  <ComboboxGroup
+                    v-if="group === 'crew' && results.astronauts.length > 0"
+                    class="flex flex-col gap-2"
                   >
-                    <span>Crew</span>
-                    <span class="tabular-nums text-side">{{ padCount(results.astronauts.length) }}</span>
-                  </ComboboxLabel>
-
-                  <div class="flex flex-col gap-2">
-                    <ComboboxItem
-                      v-for="astronaut in results.astronauts"
-                      :key="crewKey(astronaut)"
-                      :value="crewKey(astronaut)"
-                      :text-value="astronaut.fullName"
-                      class="w-full text-left px-3.5 py-2.5 border border-solid border-lineDim bg-ground hover:border-line hover:bg-surface data-[highlighted]:border-line data-[highlighted]:bg-surface data-[highlighted]:ring-1 data-[highlighted]:ring-line transition-colors cursor-pointer flex items-center justify-between gap-3 focus:outline-none"
+                    <ComboboxLabel
+                      class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-dull pb-1 border-b border-solid border-lineDim"
                     >
-                      <div class="min-w-0">
-                        <div class="flex items-center gap-2">
-                          <span class="text-sm font-semibold text-main truncate">
-                            {{ astronaut.fullName }}
+                      <span>Crew</span>
+                      <span class="tabular-nums text-side">{{ padCount(results.astronauts.length) }}</span>
+                    </ComboboxLabel>
+
+                    <div class="flex flex-col gap-2">
+                      <ComboboxItem
+                        v-for="astronaut in results.astronauts"
+                        :key="crewKey(astronaut)"
+                        :value="crewKey(astronaut)"
+                        :text-value="astronaut.fullName"
+                        class="w-full text-left px-3.5 py-2.5 rounded-xl border border-solid border-lineDim bg-ground hover:border-line hover:bg-surface data-[highlighted]:border-line data-[highlighted]:bg-surface data-[highlighted]:ring-1 data-[highlighted]:ring-line transition-colors cursor-pointer flex items-center justify-between gap-3 focus:outline-none"
+                      >
+                        <div class="min-w-0">
+                          <div class="flex items-center gap-2">
+                            <span class="text-sm font-semibold text-main truncate">
+                              {{ astronaut.fullName }}
+                            </span>
+                            <span class="px-1.5 py-0.5 rounded-md text-[10px] font-sans border border-solid border-lineDim text-side shrink-0">
+                              {{ astronaut.nationalityCode }}
+                            </span>
+                          </div>
+                          <p class="text-xs text-dull mt-0.5 truncate">
+                            {{ astronaut.nationalityLabel || astronaut.nationalityCode }} · {{ crewStatusSummary(astronaut).snippet }}
+                          </p>
+                        </div>
+
+                        <div class="flex items-center gap-2 shrink-0">
+                          <span
+                            v-if="crewStatusSummary(astronaut).activeAlertCount > 0"
+                            class="px-1.5 py-0.5 rounded-md text-[10px] font-semibold border border-solid border-crit text-crit tabular-nums"
+                          >
+                            {{ crewStatusSummary(astronaut).activeAlertCount }} Alert
                           </span>
-                          <span class="px-1.5 py-0.5 text-[10px] font-mono border border-solid border-lineDim text-side shrink-0">
-                            {{ astronaut.nationalityCode }}
+                          <span
+                            class="inline-flex items-center gap-1 text-xs font-medium"
+                            :class="statusTextClass(crewStatusSummary(astronaut).status)"
+                          >
+                            <CheckCircle2
+                              v-if="crewStatusSummary(astronaut).status === ReadingStatus.StatusNormal"
+                              class="w-3.5 h-3.5"
+                              aria-hidden="true"
+                            />
+                            <AlertTriangle
+                              v-else-if="crewStatusSummary(astronaut).status === ReadingStatus.StatusAbnormal"
+                              class="w-3.5 h-3.5"
+                              aria-hidden="true"
+                            />
+                            <AlertCircle
+                              v-else-if="crewStatusSummary(astronaut).status === ReadingStatus.StatusCritical"
+                              class="w-3.5 h-3.5"
+                              aria-hidden="true"
+                            />
+                            <WifiOff
+                              v-else-if="crewStatusSummary(astronaut).status === ReadingStatus.StatusStale"
+                              class="w-3.5 h-3.5"
+                              aria-hidden="true"
+                            />
+                            <Minus
+                              v-else
+                              class="w-3.5 h-3.5"
+                              aria-hidden="true"
+                            />
+                            <span>{{ crewStatusSummary(astronaut).label }}</span>
                           </span>
                         </div>
-                        <p class="text-xs text-dull mt-0.5 truncate">
-                          {{ astronaut.nationalityLabel || astronaut.nationalityCode }} · {{ crewStatusSummary(astronaut).snippet }}
-                        </p>
-                      </div>
+                      </ComboboxItem>
+                    </div>
+                  </ComboboxGroup>
 
-                      <div class="flex items-center gap-2 shrink-0">
-                        <span
-                          v-if="crewStatusSummary(astronaut).activeAlertCount > 0"
-                          class="px-1.5 py-0.5 text-[10px] font-semibold border border-solid border-crit text-crit tabular-nums"
-                        >
-                          {{ crewStatusSummary(astronaut).activeAlertCount }} Alert
-                        </span>
-                        <span
-                          class="inline-flex items-center gap-1 text-xs font-medium"
-                          :class="statusTextClass(crewStatusSummary(astronaut).status)"
-                        >
-                          <CheckCircle2
-                            v-if="crewStatusSummary(astronaut).status === ReadingStatus.StatusNormal"
-                            class="w-3.5 h-3.5"
-                            aria-hidden="true"
-                          />
-                          <AlertTriangle
-                            v-else-if="crewStatusSummary(astronaut).status === ReadingStatus.StatusAbnormal"
-                            class="w-3.5 h-3.5"
-                            aria-hidden="true"
-                          />
-                          <AlertCircle
-                            v-else-if="crewStatusSummary(astronaut).status === ReadingStatus.StatusCritical"
-                            class="w-3.5 h-3.5"
-                            aria-hidden="true"
-                          />
-                          <WifiOff
-                            v-else-if="crewStatusSummary(astronaut).status === ReadingStatus.StatusStale"
-                            class="w-3.5 h-3.5"
-                            aria-hidden="true"
-                          />
-                          <Minus
-                            v-else
-                            class="w-3.5 h-3.5"
-                            aria-hidden="true"
-                          />
-                          <span>{{ crewStatusSummary(astronaut).label }}</span>
-                        </span>
-                      </div>
-                    </ComboboxItem>
-                  </div>
-                </ComboboxGroup>
-
-                <!-- Medical Procedures Group -->
-                <ComboboxGroup
-                  v-if="results.procedures.length > 0"
-                  class="flex flex-col gap-2"
-                >
-                  <ComboboxLabel
-                    class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-dull pb-1 border-b border-solid border-lineDim"
+                  <!-- Metrics Group -->
+                  <ComboboxGroup
+                    v-else-if="group === 'metrics' && results.metrics.length > 0"
+                    class="flex flex-col gap-2"
                   >
-                    <span>Medical Procedures</span>
-                    <span class="tabular-nums text-side">{{ padCount(results.procedures.length) }}</span>
-                  </ComboboxLabel>
-
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <ComboboxItem
-                      v-for="proc in results.procedures"
-                      :key="procKey(proc)"
-                      :value="procKey(proc)"
-                      :text-value="proc.title"
-                      class="text-left p-3 border border-solid bg-ground hover:border-line hover:bg-surface data-[highlighted]:border-line data-[highlighted]:bg-surface data-[highlighted]:ring-1 data-[highlighted]:ring-line transition-colors cursor-pointer flex flex-col gap-2 focus:outline-none"
-                      :class="pinnedKey === procKey(proc) ? 'border-line bg-surface' : 'border-lineDim'"
+                    <ComboboxLabel
+                      class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-dull pb-1 border-b border-solid border-lineDim"
                     >
-                      <div class="flex items-start justify-between gap-2">
-                        <h3 class="text-sm font-semibold text-main leading-snug">
-                          {{ proc.title }}
-                        </h3>
-                      </div>
+                      <span>Metrics</span>
+                      <span class="tabular-nums text-side">{{ padCount(results.metrics.length) }}</span>
+                    </ComboboxLabel>
 
-                      <p class="text-xs text-side line-clamp-2 leading-relaxed">
-                        {{ proc.whenToUse || proc.summary }}
-                      </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <ComboboxItem
+                        v-for="metric in results.metrics"
+                        :key="metricKey(metric)"
+                        :value="metricKey(metric)"
+                        :text-value="metric.name"
+                        class="text-left p-3 rounded-xl border border-solid bg-ground hover:border-line hover:bg-surface data-[highlighted]:border-line data-[highlighted]:bg-surface data-[highlighted]:ring-1 data-[highlighted]:ring-line transition-colors cursor-pointer flex flex-col gap-2 focus:outline-none"
+                        :class="pinnedKey === metricKey(metric) ? 'border-line bg-surface' : 'border-lineDim'"
+                      >
+                        <div class="flex items-start justify-between gap-2">
+                          <span class="text-sm font-semibold text-main leading-snug">
+                            {{ metric.name }}
+                          </span>
+                          <span class="px-1.5 py-0.5 rounded-md text-[10px] uppercase border border-solid border-lineDim text-side shrink-0">
+                            {{ metric.tier }}
+                          </span>
+                        </div>
 
-                      <div class="flex flex-wrap items-center gap-1.5 mt-auto pt-1">
-                        <span
-                          class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium border border-solid"
-                          :class="escalationShort(proc.escalation).classes"
-                        >
-                          <component
-                            :is="escalationShort(proc.escalation).icon"
-                            class="w-3 h-3 shrink-0"
-                            aria-hidden="true"
-                          />
-                          <span>{{ escalationShort(proc.escalation).label }}</span>
-                        </span>
-                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-dull border border-solid border-lineDim tabular-nums">
-                          <Clock class="w-2.5 h-2.5" aria-hidden="true" />
-                          <span>{{ proc.estimatedMinutes }}m</span>
-                        </span>
-                        <span
-                          v-for="mCode in proc.relatedMetricCodes.slice(0, 2)"
-                          :key="mCode"
-                          class="px-1.5 py-0.5 text-[10px] font-mono text-dull border border-solid border-lineDim"
-                        >
-                          {{ mCode }}
-                        </span>
-                      </div>
-                    </ComboboxItem>
-                  </div>
-                </ComboboxGroup>
-
-                <!-- NASA Hazards Group -->
-                <ComboboxGroup
-                  v-if="results.hazards.length > 0"
-                  class="flex flex-col gap-2"
-                >
-                  <ComboboxLabel
-                    class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-dull pb-1 border-b border-solid border-lineDim"
-                  >
-                    <span>NASA Hazards</span>
-                    <span class="tabular-nums text-side">{{ padCount(results.hazards.length) }}</span>
-                  </ComboboxLabel>
-
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <ComboboxItem
-                      v-for="hazard in results.hazards"
-                      :key="hazardKey(hazard)"
-                      :value="hazardKey(hazard)"
-                      :text-value="hazard.name"
-                      class="text-left p-3 border border-solid bg-ground hover:border-line hover:bg-surface data-[highlighted]:border-line data-[highlighted]:bg-surface data-[highlighted]:ring-1 data-[highlighted]:ring-line transition-colors cursor-pointer flex flex-col gap-2 focus:outline-none"
-                      :class="pinnedKey === hazardKey(hazard) ? 'border-line bg-surface' : 'border-lineDim'"
-                    >
-                      <div class="flex items-center justify-between gap-2">
-                        <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-main leading-snug">
-                          <ShieldAlert class="w-3.5 h-3.5 text-warn shrink-0" aria-hidden="true" />
-                          <span>{{ hazard.name }}</span>
-                        </span>
-                      </div>
-
-                      <p class="text-xs text-side line-clamp-2 leading-relaxed">
-                        {{ hazard.summary }}
-                      </p>
-
-                      <div class="flex items-center justify-between gap-2 mt-auto pt-1 text-[11px] text-dull">
-                        <span>{{ hazard.relatedMetricCodes.length }} linked metrics</span>
-                        <span class="font-mono">{{ hazard.code }}</span>
-                      </div>
-                    </ComboboxItem>
-                  </div>
-                </ComboboxGroup>
-
-                <!-- Metrics Group -->
-                <ComboboxGroup
-                  v-if="results.metrics.length > 0"
-                  class="flex flex-col gap-2"
-                >
-                  <ComboboxLabel
-                    class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-dull pb-1 border-b border-solid border-lineDim"
-                  >
-                    <span>Metrics</span>
-                    <span class="tabular-nums text-side">{{ padCount(results.metrics.length) }}</span>
-                  </ComboboxLabel>
-
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <ComboboxItem
-                      v-for="metric in results.metrics"
-                      :key="metricKey(metric)"
-                      :value="metricKey(metric)"
-                      :text-value="metric.name"
-                      class="text-left p-3 border border-solid bg-ground hover:border-line hover:bg-surface data-[highlighted]:border-line data-[highlighted]:bg-surface data-[highlighted]:ring-1 data-[highlighted]:ring-line transition-colors cursor-pointer flex flex-col gap-1.5 focus:outline-none"
-                      :class="pinnedKey === metricKey(metric) ? 'border-line bg-surface' : 'border-lineDim'"
-                    >
-                      <div class="flex items-start justify-between gap-2">
-                        <span class="text-sm font-semibold text-main leading-snug">
-                          {{ metric.name }}
-                        </span>
-                        <span class="px-1.5 py-0.5 text-[10px] uppercase border border-solid border-lineDim text-side shrink-0">
-                          {{ metric.tier }}
-                        </span>
-                      </div>
-
-                      <div class="flex items-center justify-between gap-2 text-xs">
-                        <span class="font-mono text-dull truncate">
+                        <div class="text-xs font-sans text-dull truncate">
                           {{ metric.code }}
                           <span v-if="metric.displayUnitSymbol || metric.baseUnitSymbol">
                             ({{ metric.displayUnitSymbol || metric.baseUnitSymbol }})
                           </span>
-                        </span>
+                        </div>
 
-                        <span
-                          class="hud-value inline-flex items-center gap-1 shrink-0"
-                          :class="statusTextClass(metricLiveSummary(metric).status)"
+                        <ul
+                          v-if="metricLiveRows(metric).length > 0"
+                          class="flex flex-col gap-1 pt-1.5 mt-auto border-t border-solid border-lineDim/70"
                         >
-                          <span>{{ metricLiveSummary(metric).display }}</span>
-                          <CheckCircle2
-                            v-if="metricLiveSummary(metric).status === ReadingStatus.StatusNormal"
-                            class="w-3 h-3"
-                            aria-hidden="true"
-                          />
-                          <AlertTriangle
-                            v-else-if="metricLiveSummary(metric).status === ReadingStatus.StatusAbnormal"
-                            class="w-3 h-3"
-                            aria-hidden="true"
-                          />
-                          <AlertCircle
-                            v-else-if="metricLiveSummary(metric).status === ReadingStatus.StatusCritical"
-                            class="w-3 h-3"
-                            aria-hidden="true"
-                          />
-                          <WifiOff
-                            v-else-if="metricLiveSummary(metric).status === ReadingStatus.StatusStale"
-                            class="w-3 h-3"
-                            aria-hidden="true"
-                          />
-                        </span>
-                      </div>
-                    </ComboboxItem>
-                  </div>
-                </ComboboxGroup>
+                          <li
+                            v-for="row in metricLiveRows(metric)"
+                            :key="row.key"
+                            class="flex items-center justify-between gap-2 text-xs"
+                          >
+                            <span class="text-side truncate">{{ row.label }}</span>
+                            <span
+                              class="hud-value inline-flex items-center gap-1 shrink-0"
+                              :class="statusTextClass(row.status)"
+                            >
+                              <span>{{ row.display }}</span>
+                              <CheckCircle2
+                                v-if="row.status === ReadingStatus.StatusNormal"
+                                class="w-3 h-3 shrink-0"
+                                aria-hidden="true"
+                              />
+                              <AlertTriangle
+                                v-else-if="row.status === ReadingStatus.StatusAbnormal"
+                                class="w-3 h-3 shrink-0"
+                                aria-hidden="true"
+                              />
+                              <AlertCircle
+                                v-else-if="row.status === ReadingStatus.StatusCritical"
+                                class="w-3 h-3 shrink-0"
+                                aria-hidden="true"
+                              />
+                              <WifiOff
+                                v-else-if="row.status === ReadingStatus.StatusStale"
+                                class="w-3 h-3 shrink-0"
+                                aria-hidden="true"
+                              />
+                              <Minus
+                                v-else
+                                class="w-3 h-3 shrink-0"
+                                aria-hidden="true"
+                              />
+                              <span class="sr-only">({{ statusLabel(row.status) }})</span>
+                            </span>
+                          </li>
+                        </ul>
+                      </ComboboxItem>
+                    </div>
+                  </ComboboxGroup>
+
+                  <!-- Medical Procedures Group -->
+                  <ComboboxGroup
+                    v-else-if="group === 'procedures' && results.procedures.length > 0"
+                    class="flex flex-col gap-2"
+                  >
+                    <ComboboxLabel
+                      class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-dull pb-1 border-b border-solid border-lineDim"
+                    >
+                      <span>Medical Procedures</span>
+                      <span class="tabular-nums text-side">{{ padCount(results.procedures.length) }}</span>
+                    </ComboboxLabel>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <ComboboxItem
+                        v-for="proc in results.procedures"
+                        :key="procKey(proc)"
+                        :value="procKey(proc)"
+                        :text-value="proc.title"
+                        class="text-left p-3 rounded-xl border border-solid bg-ground hover:border-line hover:bg-surface data-[highlighted]:border-line data-[highlighted]:bg-surface data-[highlighted]:ring-1 data-[highlighted]:ring-line transition-colors cursor-pointer flex flex-col gap-2 focus:outline-none"
+                        :class="pinnedKey === procKey(proc) ? 'border-line bg-surface' : 'border-lineDim'"
+                      >
+                        <div class="flex items-start justify-between gap-2">
+                          <h3 class="text-sm font-semibold text-main leading-snug">
+                            {{ proc.title }}
+                          </h3>
+                        </div>
+
+                        <p class="text-xs text-side line-clamp-2 leading-relaxed">
+                          {{ proc.whenToUse || proc.summary }}
+                        </p>
+
+                        <div class="flex flex-wrap items-center gap-1.5 mt-auto pt-1">
+                          <span
+                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border border-solid"
+                            :class="escalationShort(proc.escalation).classes"
+                          >
+                            <component
+                              :is="escalationShort(proc.escalation).icon"
+                              class="w-3 h-3 shrink-0"
+                              aria-hidden="true"
+                            />
+                            <span>{{ escalationShort(proc.escalation).label }}</span>
+                          </span>
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] text-dull border border-solid border-lineDim tabular-nums">
+                            <Clock class="w-2.5 h-2.5" aria-hidden="true" />
+                            <span>{{ proc.estimatedMinutes }}m</span>
+                          </span>
+                          <span
+                            v-for="mCode in proc.relatedMetricCodes.slice(0, 2)"
+                            :key="mCode"
+                            class="px-1.5 py-0.5 rounded-md text-[10px] font-sans text-dull border border-solid border-lineDim"
+                          >
+                            {{ mCode }}
+                          </span>
+                        </div>
+                      </ComboboxItem>
+                    </div>
+                  </ComboboxGroup>
+
+                  <!-- NASA Hazards Group -->
+                  <ComboboxGroup
+                    v-else-if="group === 'hazards' && results.hazards.length > 0"
+                    class="flex flex-col gap-2"
+                  >
+                    <ComboboxLabel
+                      class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-dull pb-1 border-b border-solid border-lineDim"
+                    >
+                      <span>NASA Hazards</span>
+                      <span class="tabular-nums text-side">{{ padCount(results.hazards.length) }}</span>
+                    </ComboboxLabel>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <ComboboxItem
+                        v-for="hazard in results.hazards"
+                        :key="hazardKey(hazard)"
+                        :value="hazardKey(hazard)"
+                        :text-value="hazard.name"
+                        class="text-left p-3 rounded-xl border border-solid bg-ground hover:border-line hover:bg-surface data-[highlighted]:border-line data-[highlighted]:bg-surface data-[highlighted]:ring-1 data-[highlighted]:ring-line transition-colors cursor-pointer flex flex-col gap-2 focus:outline-none"
+                        :class="pinnedKey === hazardKey(hazard) ? 'border-line bg-surface' : 'border-lineDim'"
+                      >
+                        <div class="flex items-center justify-between gap-2">
+                          <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-main leading-snug">
+                            <ShieldAlert class="w-3.5 h-3.5 text-warn shrink-0" aria-hidden="true" />
+                            <span>{{ hazard.name }}</span>
+                          </span>
+                        </div>
+
+                        <p class="text-xs text-side line-clamp-2 leading-relaxed">
+                          {{ hazard.summary }}
+                        </p>
+
+                        <div class="flex items-center justify-between gap-2 mt-auto pt-1 text-[11px] text-dull">
+                          <span class="tabular-nums">{{ hazard.relatedMetricCodes.length }} linked metrics</span>
+                          <span class="font-sans">{{ hazard.code }}</span>
+                        </div>
+                      </ComboboxItem>
+                    </div>
+                  </ComboboxGroup>
+                </template>
 
                 <!-- Empty State -->
                 <ComboboxEmpty class="flex-1 flex flex-col items-center justify-center text-center py-12 px-4 gap-3">
@@ -871,7 +916,7 @@ onBeforeUnmount(() => {
                     </p>
                     <button
                       type="button"
-                      class="px-3 py-1.5 text-xs font-medium border border-solid border-line bg-ground text-main hover:bg-surface transition-colors cursor-pointer mt-1"
+                      class="font-sans px-3 py-1.5 rounded-xl text-xs font-medium border border-solid border-line bg-ground text-main hover:bg-surface transition-colors cursor-pointer mt-1"
                       @click="resetFilters"
                     >
                       Reset filters
@@ -892,20 +937,20 @@ onBeforeUnmount(() => {
 
           <div class="flex flex-wrap items-center gap-3">
             <span class="inline-flex items-center gap-1">
-              <kbd class="px-1.5 py-0.5 text-[10px] font-medium text-side border border-solid border-lineDim">↑</kbd>
-              <kbd class="px-1.5 py-0.5 text-[10px] font-medium text-side border border-solid border-lineDim">↓</kbd>
+              <kbd class="font-sans px-1.5 py-0.5 rounded-md text-[10px] font-medium text-side border border-solid border-lineDim">↑</kbd>
+              <kbd class="font-sans px-1.5 py-0.5 rounded-md text-[10px] font-medium text-side border border-solid border-lineDim">↓</kbd>
               <span>Navigate</span>
             </span>
             <span class="inline-flex items-center gap-1">
-              <kbd class="px-1.5 py-0.5 text-[10px] font-medium text-side border border-solid border-lineDim">Enter</kbd>
+              <kbd class="font-sans px-1.5 py-0.5 rounded-md text-[10px] font-medium text-side border border-solid border-lineDim">Enter</kbd>
               <span>Select</span>
             </span>
             <button
               type="button"
-              class="inline-flex items-center gap-1 text-dull hover:text-main transition-colors cursor-pointer"
+              class="font-sans inline-flex items-center gap-1 text-dull hover:text-main transition-colors cursor-pointer"
               @click="closeSearch"
             >
-              <kbd class="px-1.5 py-0.5 text-[10px] font-medium text-side border border-solid border-lineDim">Esc</kbd>
+              <kbd class="font-sans px-1.5 py-0.5 rounded-md text-[10px] font-medium text-side border border-solid border-lineDim">Esc</kbd>
               <span>Close</span>
             </button>
           </div>

@@ -297,7 +297,7 @@ const metricLiveReadings = computed(() => {
 <template>
   <aside
     aria-label="Featured entry details"
-    class="flex flex-col h-full min-h-0 bg-ground"
+    class="font-sans flex flex-col h-full min-h-0 bg-ground"
   >
     <!-- Pane Subheader -->
     <div class="px-4 py-2.5 border-b border-solid border-lineDim flex items-center justify-between gap-2 shrink-0">
@@ -308,21 +308,21 @@ const metricLiveReadings = computed(() => {
       <div class="flex items-center gap-2">
         <span
           v-if="isPinned && entry?.kind === 'procedure'"
-          class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider border border-solid border-line bg-main text-ground"
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider border border-solid border-line bg-main text-ground"
         >
           <ClipboardList class="w-3 h-3" aria-hidden="true" />
           Active Checklist
         </span>
         <span
           v-else-if="isPinned"
-          class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider border border-solid border-lineDim bg-surface text-main"
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider border border-solid border-lineDim bg-surface text-main"
         >
           Pinned
         </span>
         <button
           v-if="isPinned"
           type="button"
-          class="inline-flex items-center gap-1 text-[11px] text-dull hover:text-main transition-colors cursor-pointer"
+          class="font-sans inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[11px] text-dull hover:text-main transition-colors cursor-pointer"
           title="Return preview to follow highlighted item"
           @click="emit('unpin')"
         >
@@ -354,11 +354,11 @@ const metricLiveReadings = computed(() => {
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2 mb-1.5">
-            <span class="px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider border border-solid border-lineDim bg-surface text-side">
+            <span class="px-2 py-0.5 rounded-md text-[11px] font-medium uppercase tracking-wider border border-solid border-lineDim bg-surface text-side">
               Crew
             </span>
             <span
-              class="px-2 py-0.5 text-[11px] font-medium border border-solid"
+              class="px-2 py-0.5 rounded-md text-[11px] font-medium border border-solid"
               :class="entry.astronaut.isActive ? 'border-ok/60 text-ok' : 'border-lineDim text-dull'"
             >
               {{ entry.astronaut.isActive ? "Active" : "Inactive" }}
@@ -381,7 +381,7 @@ const metricLiveReadings = computed(() => {
       <div
         v-if="crewActiveAlerts.length > 0"
         role="status"
-        class="border border-solid border-crit bg-surface px-3.5 py-2.5 flex items-start gap-2.5 text-xs text-crit"
+        class="rounded-xl border border-solid border-crit bg-surface px-3.5 py-2.5 flex items-start gap-2.5 text-xs text-crit"
       >
         <AlertCircle class="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
         <div class="min-w-0">
@@ -395,7 +395,7 @@ const metricLiveReadings = computed(() => {
       </div>
 
       <!-- Live Vitals Summary -->
-      <div class="border border-solid border-lineDim bg-surface p-4 flex flex-col gap-3">
+      <div class="rounded-xl border border-solid border-lineDim bg-surface p-4 flex flex-col gap-3">
         <h3 class="text-xs font-semibold uppercase tracking-wider text-side">
           Live Vitals Summary
         </h3>
@@ -441,7 +441,7 @@ const metricLiveReadings = computed(() => {
       <div class="mt-auto pt-2 flex flex-wrap items-center gap-3">
         <button
           type="button"
-          class="button-main rounded-none w-full justify-between px-4 text-sm cursor-pointer"
+          class="button-main font-sans w-full justify-between px-4 text-sm cursor-pointer"
           @click="openPrimaryVitals(entry.astronaut)"
         >
           <span>Open Primary Vitals</span>
@@ -457,15 +457,15 @@ const metricLiveReadings = computed(() => {
     >
       <div class="flex flex-col gap-2">
         <div class="flex flex-wrap items-center gap-1.5">
-          <span class="px-2 py-0.5 text-[11px] font-medium border border-solid border-lineDim bg-surface text-side">
+          <span class="px-2 py-0.5 rounded-md text-[11px] font-medium border border-solid border-lineDim bg-surface text-side">
             {{ humanizeCode(entry.procedure.category) }}
           </span>
-          <span class="px-2 py-0.5 text-[11px] font-medium border border-solid border-lineDim bg-surface text-side">
+          <span class="px-2 py-0.5 rounded-md text-[11px] font-medium border border-solid border-lineDim bg-surface text-side">
             {{ humanizeCode(entry.procedure.bodySystem) }}
           </span>
           <span
             v-if="entry.procedure.environment"
-            class="px-2 py-0.5 text-[11px] font-semibold uppercase border border-solid border-lineDim text-main"
+            class="px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase border border-solid border-lineDim text-main"
           >
             {{ entry.procedure.environment }}
           </span>
@@ -477,7 +477,7 @@ const metricLiveReadings = computed(() => {
 
         <div class="flex flex-wrap items-center gap-2 pt-0.5">
           <span
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold border border-solid"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-solid"
             :class="escalationMeta(entry.procedure.escalation).classes"
           >
             <component
@@ -488,7 +488,7 @@ const metricLiveReadings = computed(() => {
             <span>{{ escalationMeta(entry.procedure.escalation).label }}</span>
           </span>
 
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-side border border-solid border-lineDim bg-surface tabular-nums">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-side border border-solid border-lineDim bg-surface tabular-nums">
             <Clock class="w-3.5 h-3.5 text-dull shrink-0" aria-hidden="true" />
             <span>~{{ entry.procedure.estimatedMinutes }} min</span>
           </span>
@@ -496,7 +496,7 @@ const metricLiveReadings = computed(() => {
       </div>
 
       <!-- When to Use -->
-      <section class="border border-solid border-lineDim bg-surface p-3.5 flex flex-col gap-1.5">
+      <section class="rounded-xl border border-solid border-lineDim bg-surface p-3.5 flex flex-col gap-1.5">
         <h3 class="text-[11px] font-semibold uppercase tracking-wider text-side">
           When to Use
         </h3>
@@ -521,7 +521,7 @@ const metricLiveReadings = computed(() => {
           <li
             v-for="item in entry.procedure.equipment"
             :key="item"
-            class="px-2.5 py-1 text-xs text-main border border-solid border-lineDim bg-surface"
+            class="px-2.5 py-1 rounded-lg text-xs text-main border border-solid border-lineDim bg-surface"
           >
             {{ item }}
           </li>
@@ -537,9 +537,9 @@ const metricLiveReadings = computed(() => {
           <li
             v-for="(step, idx) in entry.procedure.steps"
             :key="idx"
-            class="flex items-start gap-3 border border-solid border-lineDim bg-surface/60 px-3 py-2.5 text-sm text-main leading-relaxed"
+            class="flex items-start gap-3 rounded-xl border border-solid border-lineDim bg-surface/60 px-3 py-2.5 text-sm text-main leading-relaxed"
           >
-            <span class="w-6 h-6 shrink-0 inline-flex items-center justify-center text-xs font-bold tabular-nums border border-solid border-line text-main bg-ground mt-0.5">
+            <span class="w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-lg text-xs font-bold tabular-nums border border-solid border-line text-main bg-ground mt-0.5">
               {{ idx + 1 }}
             </span>
             <span class="min-w-0 flex-1">{{ step }}</span>
@@ -550,7 +550,7 @@ const metricLiveReadings = computed(() => {
       <!-- Warnings / Escalation Triggers -->
       <section
         v-if="entry.procedure.warnings.length > 0"
-        class="border border-solid border-warn bg-surface p-3.5 flex flex-col gap-2"
+        class="rounded-xl border border-solid border-warn bg-surface p-3.5 flex flex-col gap-2"
       >
         <h3 class="text-[11px] font-semibold uppercase tracking-wider text-warn flex items-center gap-1.5">
           <AlertTriangle class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -577,7 +577,7 @@ const metricLiveReadings = computed(() => {
               v-for="code in entry.procedure.relatedMetricCodes"
               :key="code"
               type="button"
-              class="px-2 py-1 text-xs font-mono text-main border border-solid border-lineDim bg-surface hover:border-line transition-colors cursor-pointer"
+              class="font-sans px-2 py-1 rounded-lg text-xs text-main border border-solid border-lineDim bg-surface hover:border-line transition-colors cursor-pointer"
               @click="emit('filterProcedures', code)"
             >
               {{ code }}
@@ -594,7 +594,7 @@ const metricLiveReadings = computed(() => {
               v-for="hCode in entry.procedure.hazardCodes"
               :key="hCode"
               type="button"
-              class="px-2 py-1 text-xs text-side border border-solid border-lineDim bg-ground hover:border-line hover:text-main transition-colors cursor-pointer"
+              class="font-sans px-2 py-1 rounded-lg text-xs text-side border border-solid border-lineDim bg-ground hover:border-line hover:text-main transition-colors cursor-pointer"
               @click="emit('filterSearch', humanizeCode(hCode))"
             >
               {{ humanizeCode(hCode) }}
@@ -604,7 +604,7 @@ const metricLiveReadings = computed(() => {
       </section>
 
       <p class="text-[11px] text-dull border-t border-solid border-lineDim pt-3 mt-auto">
-        Source: {{ entry.procedure.source }} · Code: <span class="font-mono">{{ entry.procedure.code }}</span>
+        Source: {{ entry.procedure.source }} · Code: <span class="font-sans">{{ entry.procedure.code }}</span>
       </p>
     </div>
 
@@ -615,18 +615,18 @@ const metricLiveReadings = computed(() => {
     >
       <div>
         <div class="flex flex-wrap items-center gap-2 mb-1.5">
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider border border-solid border-warn/60 bg-surface text-warn">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium uppercase tracking-wider border border-solid border-warn/60 bg-surface text-warn">
             <ShieldAlert class="w-3 h-3" aria-hidden="true" />
             NASA HRP Hazard
           </span>
-          <span class="text-[11px] font-mono text-dull">{{ entry.hazard.code }}</span>
+          <span class="text-[11px] font-sans text-dull">{{ entry.hazard.code }}</span>
         </div>
         <h2 class="text-xl font-semibold text-main leading-tight break-words">
           {{ entry.hazard.name }}
         </h2>
       </div>
 
-      <section class="border border-solid border-lineDim bg-surface p-4 flex flex-col gap-1.5">
+      <section class="rounded-xl border border-solid border-lineDim bg-surface p-4 flex flex-col gap-1.5">
         <h3 class="text-[11px] font-semibold uppercase tracking-wider text-side">
           What It Is
         </h3>
@@ -635,7 +635,7 @@ const metricLiveReadings = computed(() => {
         </p>
       </section>
 
-      <section class="border border-solid border-lineDim bg-surface p-4 flex flex-col gap-1.5">
+      <section class="rounded-xl border border-solid border-lineDim bg-surface p-4 flex flex-col gap-1.5">
         <h3 class="text-[11px] font-semibold uppercase tracking-wider text-side">
           Why It Matters (Clinical Impact)
         </h3>
@@ -656,7 +656,7 @@ const metricLiveReadings = computed(() => {
             v-for="code in entry.hazard.relatedMetricCodes"
             :key="code"
             type="button"
-            class="px-2.5 py-1 text-xs font-mono text-main border border-solid border-lineDim bg-surface hover:border-line transition-colors cursor-pointer"
+            class="font-sans px-2.5 py-1 rounded-lg text-xs text-main border border-solid border-lineDim bg-surface hover:border-line transition-colors cursor-pointer"
             @click="emit('filterProcedures', code)"
           >
             {{ code }}
@@ -667,7 +667,7 @@ const metricLiveReadings = computed(() => {
       <div class="pt-1">
         <button
           type="button"
-          class="button-main rounded-none w-full justify-between px-4 text-sm cursor-pointer"
+          class="button-main font-sans w-full justify-between px-4 text-sm cursor-pointer"
           @click="emit('filterProcedures', entry.hazard.relatedMetricCodes[0] ?? entry.hazard.name)"
         >
           <span>View Matching Procedures</span>
@@ -687,26 +687,26 @@ const metricLiveReadings = computed(() => {
     >
       <div>
         <div class="flex flex-wrap items-center gap-2 mb-1.5">
-          <span class="px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider border border-solid border-lineDim bg-surface text-side">
+          <span class="px-2 py-0.5 rounded-md text-[11px] font-medium uppercase tracking-wider border border-solid border-lineDim bg-surface text-side">
             {{ effectiveMetric.metricType === 2 ? "Environment Metric" : "Crew Metric" }}
           </span>
-          <span class="px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider border border-solid border-lineDim text-main">
+          <span class="px-2 py-0.5 rounded-md text-[11px] font-medium uppercase tracking-wider border border-solid border-lineDim text-main">
             Tier: {{ effectiveMetric.tier }}
           </span>
-          <span v-if="metricUnit" class="px-2 py-0.5 text-[11px] font-mono border border-solid border-lineDim text-side">
+          <span v-if="metricUnit" class="px-2 py-0.5 rounded-md text-[11px] font-sans border border-solid border-lineDim text-side">
             {{ metricUnit }}
           </span>
         </div>
         <h2 class="text-xl font-semibold text-main leading-tight break-words">
           {{ effectiveMetric.name }}
         </h2>
-        <p class="text-xs text-dull mt-1 font-mono">
+        <p class="text-xs text-dull mt-1 font-sans">
           {{ effectiveMetric.code }} · {{ humanizeCode(effectiveMetric.category) }}
         </p>
       </div>
 
       <!-- DB Thresholds -->
-      <section class="border border-solid border-lineDim bg-surface p-4 flex flex-col gap-2.5">
+      <section class="rounded-xl border border-solid border-lineDim bg-surface p-4 flex flex-col gap-2.5">
         <h3 class="text-[11px] font-semibold uppercase tracking-wider text-side">
           Catalog Thresholds
         </h3>
@@ -745,7 +745,7 @@ const metricLiveReadings = computed(() => {
       </section>
 
       <!-- Live Telemetry Readings -->
-      <section class="border border-solid border-lineDim bg-surface p-4 flex flex-col gap-2.5">
+      <section class="rounded-xl border border-solid border-lineDim bg-surface p-4 flex flex-col gap-2.5">
         <h3 class="text-[11px] font-semibold uppercase tracking-wider text-side">
           Live Telemetry
         </h3>
@@ -760,12 +760,12 @@ const metricLiveReadings = computed(() => {
           >
             <div class="min-w-0">
               <p class="text-main font-medium truncate">{{ item.label }}</p>
-              <p v-if="item.met" class="text-[11px] text-dull font-mono">
+              <p v-if="item.met" class="text-[11px] text-dull font-sans tabular-nums">
                 MET {{ item.met }}
               </p>
             </div>
             <span
-              class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs border border-solid shrink-0 hud-value"
+              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs border border-solid shrink-0 hud-value"
               :class="statusBadgeClass(item.status)"
             >
               <span>{{ item.display }}</span>
@@ -802,7 +802,7 @@ const metricLiveReadings = computed(() => {
       <div class="mt-auto pt-2">
         <button
           type="button"
-          class="button-main rounded-none w-full justify-between px-4 text-sm cursor-pointer"
+          class="button-main font-sans w-full justify-between px-4 text-sm cursor-pointer"
           @click="emit('filterProcedures', effectiveMetric.code)"
         >
           <span>View Procedures for {{ effectiveMetric.code }}</span>
