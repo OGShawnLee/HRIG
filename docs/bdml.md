@@ -160,18 +160,46 @@ Table metric_threshold {
   warning_max  numeric(12,4)
   critical_min numeric(12,4)
   critical_max numeric(12,4)
-  classification_mode text [not null, default: 'numeric']
+  classification_mode text  [not null, default: 'numeric']
   source       text          [not null, default: 'demo']
   updated_at   timestamptz   [not null, default: `now()`]
 
   Note: '''
   Every catalog metric has a configuration. Boundaries use metric.base_unit_id.
-  The server checks critical limits first;
-  otherwise values outside warning limits are abnormal, and values within them are
-  normal. A NULL boundary means no limit on that side. No row means unconfigured.
-  Image metrics use manual mode because they have no numeric limits. Seed values
-  are examples that require clinical review, not medical advice. Demo heart_rate
-  has critical_max = 200 bpm.
+  The server checks critical limits first; otherwise values outside warning limits
+  are abnormal, and values within them are normal. A NULL boundary means no limit
+  on that side. Image metrics use manual mode because they have no numeric limits.
+  No threshold row means unconfigured.
+
+  Mockup threshold data from db/002_seed.sql (warning range; critical outside):
+  heart_rate 50-100 /min, critical <=40 or >=200 /min
+  spo2 >=94 %, critical <=90 %
+  resp_rate 10-20 /min, critical <=6 or >=30 /min
+  bp_systolic 90-120 mm[Hg], critical <=70 or >=180 mm[Hg]
+  bp_diastolic 60-80 mm[Hg], critical <=40 or >=120 mm[Hg]
+  core_temp 36.5-37.3 Cel, critical <=35 or >=40 Cel
+  cabin_o2 19.5-23.5 %, critical <=17 or >=25 %
+  cabin_ppco2 <=3 mm[Hg], critical >=5 mm[Hg]
+  cabin_pressure 97-104 kPa, critical <=90 or >=110 kPa
+  suit_pressure 28-30 kPa, critical <=25 or >=33 kPa
+  cabin_temp 18-27 Cel, critical <=10 or >=35 Cel
+  suit_temp 15-35 Cel, critical <=5 or >=45 Cel
+  hrv_rmssd >=20 ms, critical <=10 ms
+  radiation_rate <=0.5 uSv/h, critical >=2 uSv/h
+  radiation_dose_cum <=20 mSv, critical >=50 mSv
+  sleep_hours 7-9 h, critical <=4 or >=14 h
+  mood 2-4 score, critical <=1 or >=5 score
+  blood_glucose 70-140 mg/dL, critical <=54 or >=250 mg/dL
+  hydration_intake 1500-3500 mL, critical <=500 or >=5000 mL
+  body_mass 45-110 kg, critical <=35 or >=140 kg
+  rbc_count 4-6 10*6/uL, critical <=2.5 or >=8 10*6/uL
+  wbc_count 4-11 10*3/uL, critical <=1 or >=30 10*3/uL
+  ultrasound is manually classified (no numeric thresholds).
+
+  These mockup values approximate common adult resting references where applicable.
+  Spaceflight, EVA, lab, radiation, and individual thresholds are illustrative and
+  require expert review; they are not medical advice. The database seed is the
+  source of truth if these documented example values change.
   '''
 }
 
@@ -276,5 +304,6 @@ Ref: measurement.device_id             > device.id           // device 1 : N mea
 Ref: measurement_value.measurement_id  > measurement.id      [delete: restrict] // 1 : N
 Ref: measurement_value.metric_id       > metric.id           // metric 1 : N measurement_value
 Ref: metric.base_unit_id               > unit.id             // metric N : 1 unit, optional (canonical unit)
+Ref: metric_threshold.metric_id        > metric.id           // at most one threshold configuration per metric
 Ref: measurement_value.unit_id         > unit.id             // unit 1 : N measurement_value (reading unit)
 Ref: media_asset.measurement_id        > measurement.id      // measurement 1 : N media_asset, optional
