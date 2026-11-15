@@ -26,6 +26,28 @@ tasks:
     cmds:
       - wails3 task bindings
 
+  server:check:
+    dir: server
+    cmds:
+      - go vet ./...
+      - go test ./...
+      - go build -o ../bin/hrig-server{{exeExt}} ./cmd/server
+
+  server:test:
+    dir: server
+    cmds:
+      - go test -v ./...
+
+  server:build:
+    dir: server
+    cmds:
+      - go build -o ../bin/hrig-server{{exeExt}} ./cmd/server
+
+  server:dev:
+    dir: server
+    cmds:
+      - go run ./cmd/server
+
   db:start:
     platforms: [windows]
     cmds:
