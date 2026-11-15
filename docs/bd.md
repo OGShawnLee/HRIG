@@ -2,7 +2,7 @@
 
 > **Status:** specification for review. No SQL has been generated and nothing exists in the database yet.
 > **Scope:** only the **astronaut profile** and the **measurements with their unit of measure**.
-> **Out of scope:** mission, physical location, thresholds, alerts, symptoms, procedures, users, and audit.
+> **Out of scope:** mission, physical location, clinical threshold configuration, alerts, symptoms, procedures, users, and audit.
 
 ## Conventions
 
@@ -94,7 +94,21 @@
 > **`code`** examples: `biomonitor_01`, `dosimeter_01`, `suit_bus_02`.
 > **`kind`:** `wearable`, `environment_sensor`, `manual`, `lab_assay`, `imaging`.
 
-## 5. `measurement` — capture event or session
+## 5. `metric_threshold` — classification limits
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `id` | uuid | PK |
+| `metric_id` | uuid | UNIQUE FK → `metric`; at most one threshold row per metric |
+| `warning_min`, `warning_max` | numeric(12,4) | Warning boundaries in the metric's canonical unit |
+| `critical_min`, `critical_max` | numeric(12,4) | Critical boundaries in the metric's canonical unit |
+| `classification_mode` | text | `numeric` for range evaluation; `manual` for human-reviewed metrics such as images |
+| `source` | text | Provenance/review note for these limits |
+| `updated_at` | timestamptz | Time of last update |
+
+Every metric in the catalog has a configuration from `002_seed.sql`. For `numeric` mode, the server checks critical limits first: a value at/beyond a configured critical boundary is `critical`; otherwise a value beyond a warning boundary is `abnormal`; values within the warning boundaries are `normal`. A `NULL` boundary means no limit on that side. `manual` mode is used for image metrics such as ultrasound, whose finding must be classified by a human rather than assigned a fabricated numeric range. The mockup boundaries approximate common adult resting references for vital signs and sleep; spacecraft, EVA, lab, and individual thresholds remain illustrative and require domain review. They are mockup values, not medical advice. The heart-rate example marks values at or above 200 bpm as critical.
+
+## 6. `measurement` — capture event or session
 
 | Attribute | Type | Constraint |
 |---|---|---|
@@ -113,7 +127,7 @@
 
 **Indexes:** `(astronaut_id, recorded_at_utc DESC)` · `(device_id, recorded_at_utc DESC)`
 
-## 6. `measurement_value` — individual reading value
+## 7. `measurement_value` — individual reading value
 
 | Attribute | Type | Constraint |
 |---|---|---|
@@ -125,10 +139,12 @@
 | `value_numeric` | numeric(12,4) | nullable |
 | `value_scale` | smallint | nullable |
 | `value_text` | text | nullable |
+| `status` | enum `reading_status` | NOT NULL, default `normal` |
 | `note` | text | nullable |
 
 > `unit_id` is the **actual** unit this reading arrived in, and it is required whenever `value_numeric` is present. It stays `NULL` only for `text` and `image` metrics. `value_scale` holds subjective scales (mood 1–5); `value_text` holds findings and interpretations.
 > `recorded_at_utc` is the **only** denormalized field in the schema. It always mirrors `measurement.recorded_at_utc` (enforced by trigger `trg_measurement_value_timestamp`) and exists so the HUD can answer "latest value per metric" with a single index scan instead of sorting the history of every metric.
+> `status` stores the classification for this individual reading: `normal`, `abnormal` (review/check recommended) or `critical` (urgent response). The server determines it from `metric_threshold` and stores the resulting status with the reading.
 
 **Constraints**
 
@@ -139,7 +155,7 @@
 
 **Index:** `(metric_id, recorded_at_utc DESC)` — serves both the latest-value lookup and 24-hour trends.
 
-## 7. `media_asset` — ultrasound image
+## 8. `media_asset` — ultrasound image
 
 | Attribute | Type | Constraint |
 |---|---|---|
@@ -189,6 +205,7 @@ erDiagram
 | `device` → `measurement` | 1 : N (0..N) | `NULL` when captured manually |
 | `measurement` → `measurement_value` | 1 : N | A blood pressure reading is 2 values in the same event |
 | `metric` → `measurement_value` | 1 : N | — |
+| `metric` → `metric_threshold` | 1 : 0..1 | Limits consulted by the server when classifying readings |
 | `metric` → `unit` | N : 1 (0..1) | Canonical unit of the measurement type |
 | `unit` → `measurement_value` | 1 : N | Actual unit the value arrived in |
 | `measurement` → `media_asset` | 1 : N (0..N) | Only studies with an image |
@@ -272,6 +289,7 @@ erDiagram
 | D9 | No description column on any table | Documentation lives in this file; the schema keeps only data and constraints |
 | D10 | `measurement_value.recorded_at_utc` is denormalized | Measured: 169 ms → 0.34 ms on the HUD and 410 ms → 40 ms on 24-hour trends at 50k readings. It is the only duplicated field and a trigger keeps it in sync |
 | D11 | Unit dimension is enforced by trigger, not by agreement | Measured: `heart_rate = 70` with `unit = kg` was accepted without it; a `CHECK` cannot compare two tables |
+| D12 | Reading status is stored per measurement value and limits are data | The server consults `metric_threshold`, then stores normal, abnormal, or critical on the reading |
 
 ## Implementation notes
 

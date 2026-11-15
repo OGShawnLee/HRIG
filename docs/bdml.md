@@ -35,6 +35,12 @@ Enum media_kind {
   ocular
 }
 
+Enum reading_status {
+  normal
+  abnormal
+  critical
+}
+
 // ----------------------------------------------------------------------------
 // 1. astronaut — crew profile
 // ----------------------------------------------------------------------------
@@ -145,7 +151,32 @@ Table device {
 }
 
 // ----------------------------------------------------------------------------
-// 5. measurement — capture event or session
+// 5. metric_threshold — configurable classification limits
+// ----------------------------------------------------------------------------
+Table metric_threshold {
+  id           uuid          [pk, default: `gen_random_uuid()`]
+  metric_id    uuid          [not null, unique, ref: > metric.id]
+  warning_min  numeric(12,4)
+  warning_max  numeric(12,4)
+  critical_min numeric(12,4)
+  critical_max numeric(12,4)
+  classification_mode text [not null, default: 'numeric']
+  source       text          [not null, default: 'demo']
+  updated_at   timestamptz   [not null, default: `now()`]
+
+  Note: '''
+  Every catalog metric has a configuration. Boundaries use metric.base_unit_id.
+  The server checks critical limits first;
+  otherwise values outside warning limits are abnormal, and values within them are
+  normal. A NULL boundary means no limit on that side. No row means unconfigured.
+  Image metrics use manual mode because they have no numeric limits. Seed values
+  are examples that require clinical review, not medical advice. Demo heart_rate
+  has critical_max = 200 bpm.
+  '''
+}
+
+// ----------------------------------------------------------------------------
+// 6. measurement — capture event or session
 // ----------------------------------------------------------------------------
 Table measurement {
   id              uuid              [pk, default: `gen_random_uuid()`]
@@ -174,7 +205,7 @@ Table measurement {
 }
 
 // ----------------------------------------------------------------------------
-// 6. measurement_value — individual reading value
+// 7. measurement_value — individual reading value
 // ----------------------------------------------------------------------------
 Table measurement_value {
   id              uuid          [pk, default: `gen_random_uuid()`]
@@ -185,6 +216,7 @@ Table measurement_value {
   value_numeric   numeric(12,4)
   value_scale     smallint
   value_text      text
+  status          reading_status [not null, default: 'normal']
   note            text
 
   indexes {
@@ -202,6 +234,8 @@ Table measurement_value {
   value_numeric is present. It stays NULL only for text and image metrics.
   `value_scale` holds subjective scales (mood 1-5); `value_text` holds findings and
   interpretations.
+  `status` stores the server classification for this reading. The server consults
+  metric_threshold, checking critical limits before warning limits.
   `recorded_at_utc` is the ONLY denormalized field in the schema. It always mirrors
   measurement.recorded_at_utc (trigger trg_measurement_value_timestamp) and exists so
   the HUD can answer "latest value per metric" with a single index scan.
@@ -212,7 +246,7 @@ Table measurement_value {
 }
 
 // ----------------------------------------------------------------------------
-// 7. media_asset — ultrasound image
+// 8. media_asset — ultrasound image
 // ----------------------------------------------------------------------------
 Table media_asset {
   id              uuid        [pk, default: `gen_random_uuid()`]

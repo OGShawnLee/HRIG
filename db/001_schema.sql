@@ -11,6 +11,7 @@ CREATE TYPE value_type       AS ENUM ('numeric', 'scale', 'text', 'image');
 CREATE TYPE environment_mode AS ENUM ('iva', 'eva');
 CREATE TYPE device_kind      AS ENUM ('wearable', 'environment_sensor', 'manual', 'lab_assay', 'imaging');
 CREATE TYPE media_kind       AS ENUM ('ultrasound', 'ocular');
+CREATE TYPE reading_status   AS ENUM ('normal', 'abnormal', 'critical');
 
 -- ----------------------------------------------------------------------------
 -- 1. astronaut
@@ -66,6 +67,37 @@ CREATE TABLE metric (
     CONSTRAINT metric_text_no_unit       CHECK (value_type NOT IN ('text', 'image') OR base_unit_id IS NULL)
 );
 
+-- Thresholds are stored in the metric's canonical unit. NULL means that side
+-- has no configured limit; the server applies critical limits before warnings.
+CREATE TABLE metric_threshold (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    metric_id       uuid NOT NULL UNIQUE REFERENCES metric (id) ON DELETE RESTRICT,
+    warning_min     numeric(12,4),
+    warning_max     numeric(12,4),
+    critical_min    numeric(12,4),
+    critical_max    numeric(12,4),
+    classification_mode text NOT NULL DEFAULT 'numeric',
+    source           text NOT NULL DEFAULT 'demo',
+    updated_at       timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT metric_threshold_mode CHECK (classification_mode IN ('numeric', 'manual')),
+    CONSTRAINT metric_threshold_has_limit CHECK (
+        classification_mode = 'manual' OR warning_min IS NOT NULL OR warning_max IS NOT NULL OR
+        critical_min IS NOT NULL OR critical_max IS NOT NULL
+    ),
+    CONSTRAINT metric_threshold_manual_no_limits CHECK (
+        classification_mode <> 'manual' OR (warning_min IS NULL AND warning_max IS NULL AND critical_min IS NULL AND critical_max IS NULL)
+    ),
+    CONSTRAINT metric_threshold_low_order CHECK (
+        critical_min IS NULL OR warning_min IS NULL OR critical_min < warning_min
+    ),
+    CONSTRAINT metric_threshold_high_order CHECK (
+        critical_max IS NULL OR warning_max IS NULL OR critical_max > warning_max
+    ),
+    CONSTRAINT metric_threshold_order CHECK (
+        warning_min IS NULL OR warning_max IS NULL OR warning_min <= warning_max
+    )
+);
+
 -- ----------------------------------------------------------------------------
 -- 4. device
 -- ----------------------------------------------------------------------------
@@ -105,6 +137,7 @@ CREATE TABLE measurement_value (
     value_numeric   numeric(12,4),
     value_scale     smallint,
     value_text      text,
+    status          reading_status NOT NULL DEFAULT 'normal',
     note            text,
     CONSTRAINT measurement_value_once_per_metric UNIQUE (measurement_id, metric_id),
     CONSTRAINT measurement_value_has_value       CHECK (num_nonnulls(value_numeric, value_scale, value_text) >= 1),

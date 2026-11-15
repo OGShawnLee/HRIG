@@ -85,4 +85,51 @@ ON CONFLICT (code) DO UPDATE
     SET name = EXCLUDED.name,
         kind = EXCLUDED.kind;
 
+-- Mockup limits in each metric's canonical unit, informed by common adult
+-- resting reference ranges where applicable. Context-specific spacecraft,
+-- EVA, and individual limits are illustrative and require expert review.
+INSERT INTO metric_threshold (metric_id, warning_min, warning_max, critical_min, critical_max, source)
+SELECT m.id, v.warning_min, v.warning_max, v.critical_min, v.critical_max, 'demo - clinical review required'
+FROM (VALUES
+    ('heart_rate',        50::numeric, 100::numeric, 40::numeric, 200::numeric),
+    ('spo2',              94,          NULL,         90,          NULL),
+    ('resp_rate',         10,          20,           6,           30),
+    ('bp_systolic',       90,          120,          70,          180),
+    ('bp_diastolic',      60,          80,           40,          120),
+    ('core_temp',         36.5,        37.3,         35,          40),
+    ('cabin_o2',          19.5,        23.5,         17,          25),
+    ('cabin_ppco2',       NULL,        3,            NULL,        5),
+    ('cabin_pressure',    97,          104,          90,          110),
+    ('cabin_temp',        18,          27,           10,          35),
+    ('suit_pressure',     28,          30,           25,          33),
+    ('suit_temp',         15,          35,           5,           45),
+    ('hrv_rmssd',         20,          NULL,         10,          NULL),
+    ('radiation_rate',    NULL,        0.5,          NULL,        2),
+    ('radiation_dose_cum',NULL,        20,           NULL,        50),
+    ('sleep_hours',       7,           9,            4,           14),
+    ('mood',              2,           4,            1,           5),
+    ('blood_glucose',     70,          140,          54,          250),
+    ('hydration_intake',  1500,        3500,         500,         5000),
+    ('body_mass',         45,          110,          35,          140),
+    ('rbc_count',         4,           6,            2.5,         8),
+    ('wbc_count',         4,           11,           1,           30)
+) AS v(code, warning_min, warning_max, critical_min, critical_max)
+JOIN metric m ON m.code = v.code
+ON CONFLICT (metric_id) DO UPDATE SET
+    warning_min = EXCLUDED.warning_min,
+    warning_max = EXCLUDED.warning_max,
+    critical_min = EXCLUDED.critical_min,
+    critical_max = EXCLUDED.critical_max,
+    classification_mode = 'numeric',
+    source = EXCLUDED.source,
+    updated_at = now();
+
+-- Image studies are reviewed by a person; they do not have numeric limits.
+INSERT INTO metric_threshold (metric_id, classification_mode, source)
+SELECT id, 'manual', 'manual image review - demo configuration'
+FROM metric WHERE code = 'ultrasound'
+ON CONFLICT (metric_id) DO UPDATE SET
+    warning_min = NULL, warning_max = NULL, critical_min = NULL, critical_max = NULL,
+    classification_mode = 'manual', source = EXCLUDED.source, updated_at = now();
+
 COMMIT;
