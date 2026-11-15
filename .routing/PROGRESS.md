@@ -1,8 +1,8 @@
 # Project Progress
 
 ## Current Task
-- [ ] **Execute [`.tickets/006-integrate-sqlc/`](../.tickets/006-integrate-sqlc/task.md)** *(Draft — Ready to Dispatch)*
-  - `006`: Configure `sqlc.yaml` (`pgx/v5`), starter `db/queries/*.sql`, generated `server/internal/db/` bindings, and `wails3 task db:sqlc`.
+- [ ] **Implement [`GUIDE.md`](../GUIDE.md) Sensor Ingestion Happy Flow + DB Pool** *(Next)*
+  - Wire `pgxpool` (`DATABASE_URL`), transactional `POST` ingestion service/handler using `server/internal/db/`, and end-to-end validation with the Go `bot` simulator (`bot/`).
 - [ ] **Design & Layer Backend Services, Models & Routes Incrementally** *(Next — starting from minimal `server/` Hello World baseline)*
   - Define domain interfaces/models/routes one slice at a time (aligned with `db/001_schema.sql`, `002_seed.sql`, and [`SENSOR-READINGS.md`](../SENSOR-READINGS.md)), then update and unblock [`.tickets/005-postgres-db-integration/`](../.tickets/005-postgres-db-integration/task.md).
 - [ ] **Reconcile [`SPECIFICATION.md`](SPECIFICATION.md) & [`DOMAIN.md`](DOMAIN.md) with Reduced DB Scope & [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)** *(Pending)*
@@ -36,6 +36,7 @@
 - [x] Completed [`.tickets/002-setup-portable-postgres-17/`](../.tickets/002-setup-portable-postgres-17/) — portable PostgreSQL `17.11` in ignored `local/pgsql/` (`hrig` DB) + Windows `db:*` tasks in [`Taskfile.yml`](../Taskfile.yml)
 - [x] Completed [`.tickets/003-full-stack-install-guide/`](../.tickets/003-full-stack-install-guide/) — created [`docs/STACK_SETUP.md`](../docs/STACK_SETUP.md) and indexed it in [`README.md`](../README.md) & [`CONTEXT.md`](CONTEXT.md)
 - [x] Completed [`.tickets/004-scaffold-go-api/`](../.tickets/004-scaffold-go-api/) — minimal `Chi v5` Hello World Go server (`GET /` -> `{"message":"hello world"}`, config, CORS, graceful shutdown, `server:*` tasks)
+- [x] Completed [`.tickets/006-integrate-sqlc/`](../.tickets/006-integrate-sqlc/) — `sqlc` (`v1.28.0`) + `pgx/v5` bindings in `server/internal/db/` (`db/queries/*.sql` aligned with `001_schema.sql` and `GUIDE.md`) + `wails3 task db:sqlc`
 
 ## Upcoming
 - [ ] Retire [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) once `005` passes automated integration tests on disposable `hrig_test`
