@@ -3,7 +3,63 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as model$0 from "../shared/model/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+export function AckAlert(alertID: string, acknowledgedBy: string): $CancellablePromise<model$0.AlertEvent> {
+    return $Call.ByID(336598808, alertID, acknowledgedBy).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+export function GetAstronauts(): $CancellablePromise<model$0.Astronaut[]> {
+    return $Call.ByID(62370779).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+export function GetConnectionStatus(): $CancellablePromise<$models.ConnectionState> {
+    return $Call.ByID(1041368369).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
+export function GetHealth(): $CancellablePromise<model$0.HealthStatus> {
+    return $Call.ByID(14232937).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
+export function GetHistory(query: model$0.HistoryQuery): $CancellablePromise<model$0.HistoryEntry[]> {
+    return $Call.ByID(210907985, query).then(($result: any) => {
+        return $$createType6($result);
+    });
+}
+
+export function GetMetrics(): $CancellablePromise<model$0.Metric[]> {
+    return $Call.ByID(208941472).then(($result: any) => {
+        return $$createType8($result);
+    });
+}
+
+export function GetSnapshot(): $CancellablePromise<model$0.Snapshot> {
+    return $Call.ByID(3917273495).then(($result: any) => {
+        return $$createType9($result);
+    });
+}
+
+export function GetTrends(query: model$0.TrendQuery): $CancellablePromise<model$0.TrendPoint[]> {
+    return $Call.ByID(1496974439, query).then(($result: any) => {
+        return $$createType11($result);
+    });
+}
 
 export function OnClose(): $CancellablePromise<void> {
     return $Call.ByID(4259509356);
@@ -24,3 +80,17 @@ export function Ping(): $CancellablePromise<string> {
 export function SetContext(): $CancellablePromise<void> {
     return $Call.ByID(3448947074);
 }
+
+// Private type creation functions
+const $$createType0 = model$0.AlertEvent.createFrom;
+const $$createType1 = model$0.Astronaut.createFrom;
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $models.ConnectionState.createFrom;
+const $$createType4 = model$0.HealthStatus.createFrom;
+const $$createType5 = model$0.HistoryEntry.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = model$0.Metric.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = model$0.Snapshot.createFrom;
+const $$createType10 = model$0.TrendPoint.createFrom;
+const $$createType11 = $Create.Array($$createType10);

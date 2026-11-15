@@ -26,6 +26,10 @@ tasks:
     cmds:
       - wails3 task bindings
 
+  bindings:
+    cmds:
+      - task: client:bindings
+
   server:check:
     dir: server
     cmds:

@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -17,6 +18,7 @@ import (
 
 	"hrig/server/internal/config"
 	"hrig/server/internal/ingestion"
+	"hrig/server/internal/query"
 	"hrig/server/internal/realtime"
 	"hrig/shared/model"
 )
@@ -42,10 +44,18 @@ type DBPinger interface {
 	Ping(ctx context.Context) error
 }
 
+type TelemetryReader interface {
+	ListAstronauts(ctx context.Context) ([]model.Astronaut, error)
+	ListMetrics(ctx context.Context) ([]model.Metric, error)
+	ListTrends(ctx context.Context, filter query.TrendsFilter) ([]model.TrendPoint, error)
+	ListHistory(ctx context.Context, filter query.HistoryFilter) ([]model.HistoryEntry, error)
+}
+
 type RouterDeps struct {
 	Ingester Ingester
 	Realtime RealtimeController
 	DBPinger DBPinger
+	Reader   TelemetryReader
 }
 
 func NewRouter(cfg config.Config, ingester Ingester) http.Handler {
@@ -78,6 +88,10 @@ func NewRouterWithDeps(cfg config.Config, deps RouterDeps) http.Handler {
 	r.Get("/ws/realtime", handleRealtimeWS(cfg.AllowedOrigins, deps.Realtime))
 	r.Get("/api/snapshot", handleSnapshot(deps.Realtime))
 	r.Post("/api/alerts/{id}/ack", handleAckAlert(deps.Realtime))
+	r.Get("/api/astronauts", handleListAstronauts(deps.Reader))
+	r.Get("/api/metrics", handleListMetrics(deps.Reader))
+	r.Get("/api/trends", handleListTrends(deps.Reader))
+	r.Get("/api/history", handleListHistory(deps.Reader))
 
 	return r
 }
@@ -229,6 +243,130 @@ func handleHealth(rt RealtimeController, pinger DBPinger, activeIngests *atomic.
 			IngestClients:   int(activeIngests.Load()),
 		})
 	}
+}
+
+func handleListAstronauts(reader TelemetryReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reader == nil {
+			writeError(w, http.StatusServiceUnavailable, "query service unavailable")
+			return
+		}
+		items, err := reader.ListAstronauts(r.Context())
+		if err != nil {
+			writeQueryError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+func handleListMetrics(reader TelemetryReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reader == nil {
+			writeError(w, http.StatusServiceUnavailable, "query service unavailable")
+			return
+		}
+		items, err := reader.ListMetrics(r.Context())
+		if err != nil {
+			writeQueryError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+func handleListTrends(reader TelemetryReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reader == nil {
+			writeError(w, http.StatusServiceUnavailable, "query service unavailable")
+			return
+		}
+
+		q := r.URL.Query()
+		metricCode := strings.TrimSpace(q.Get("metric_code"))
+		if metricCode == "" {
+			writeError(w, http.StatusBadRequest, "metric_code is required")
+			return
+		}
+
+		filter := query.TrendsFilter{
+			MetricCode: metricCode,
+		}
+		if rawAstro := strings.TrimSpace(q.Get("astronaut_id")); rawAstro != "" {
+			filter.AstronautID = &rawAstro
+		}
+		if rawSince := strings.TrimSpace(q.Get("since")); rawSince != "" {
+			parsed, err := time.Parse(time.RFC3339Nano, rawSince)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "since must be an RFC3339 timestamp")
+				return
+			}
+			sinceUTC := parsed.UTC()
+			filter.SinceUTC = &sinceUTC
+		}
+		if rawLimit := strings.TrimSpace(q.Get("limit")); rawLimit != "" {
+			parsed, err := strconv.Atoi(rawLimit)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "limit must be an integer")
+				return
+			}
+			filter.Limit = parsed
+		}
+
+		items, err := reader.ListTrends(r.Context(), filter)
+		if err != nil {
+			writeQueryError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+func handleListHistory(reader TelemetryReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reader == nil {
+			writeError(w, http.StatusServiceUnavailable, "query service unavailable")
+			return
+		}
+
+		q := r.URL.Query()
+		var filter query.HistoryFilter
+		if rawAstro := strings.TrimSpace(q.Get("astronaut_id")); rawAstro != "" {
+			filter.AstronautID = &rawAstro
+		}
+		if rawLimit := strings.TrimSpace(q.Get("limit")); rawLimit != "" {
+			parsed, err := strconv.Atoi(rawLimit)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "limit must be an integer")
+				return
+			}
+			filter.Limit = parsed
+		}
+		if rawOffset := strings.TrimSpace(q.Get("offset")); rawOffset != "" {
+			parsed, err := strconv.Atoi(rawOffset)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "offset must be an integer")
+				return
+			}
+			filter.Offset = parsed
+		}
+
+		items, err := reader.ListHistory(r.Context(), filter)
+		if err != nil {
+			writeQueryError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+func writeQueryError(w http.ResponseWriter, err error) {
+	if errors.Is(err, query.ErrBadRequest) {
+		msg := strings.TrimPrefix(err.Error(), query.ErrBadRequest.Error()+": ")
+		writeError(w, http.StatusBadRequest, msg)
+		return
+	}
+	writeError(w, http.StatusInternalServerError, "internal server error")
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

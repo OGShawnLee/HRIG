@@ -6,4 +6,22 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
-Object.freeze($Create.Events);
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as main$0 from "../../../../../hrig/app/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as model$0 from "../../../../../hrig/shared/model/models.js";
+
+function configure() {
+    Object.freeze(Object.assign($Create.Events, {
+        "telemetry:connection": $$createType0,
+        "telemetry:envelope": $$createType1,
+    }));
+}
+
+// Private type creation functions
+const $$createType0 = main$0.ConnectionState.createFrom;
+const $$createType1 = model$0.RealtimeEnvelope.createFrom;
+
+configure();

@@ -75,17 +75,27 @@ func TestJSONRoundTrip(t *testing.T) {
 	wMax := 100.0
 	cMin := 40.0
 	cMax := 200.0
+	unitSymbol := "bpm"
+	unitDim := "rate"
+	var unitDecimals int16 = 0
+	displaySym := "bpm"
+	baseUnitID := "44444444-4444-4444-4444-444444444444"
 	metric := Metric{
-		ID:           "22222222-2222-2222-2222-222222222222",
-		Code:         "heart_rate",
-		Name:         "Heart rate",
-		Category:     "cardiac",
-		Tier:         TierPrimary,
-		MetricType:   1,
-		ValueType:    ValueNumeric,
-		BaseUnitCode: &unitCode,
-		DisplayOrder: 11,
-		IsActive:     true,
+		ID:                "22222222-2222-2222-2222-222222222222",
+		Code:              "heart_rate",
+		Name:              "Heart rate",
+		Category:          "cardiac",
+		Tier:              TierPrimary,
+		MetricType:        1,
+		ValueType:         ValueNumeric,
+		BaseUnitID:        &baseUnitID,
+		BaseUnitCode:      &unitCode,
+		BaseUnitSymbol:    &unitSymbol,
+		BaseUnitDimension: &unitDim,
+		BaseUnitDecimals:  &unitDecimals,
+		DisplayUnitSymbol: &displaySym,
+		DisplayOrder:      11,
+		IsActive:          true,
 		Threshold: &MetricThreshold{
 			ID:                 "33333333-3333-3333-3333-333333333333",
 			MetricID:           "22222222-2222-2222-2222-222222222222",
@@ -121,6 +131,89 @@ func TestJSONRoundTrip(t *testing.T) {
 		IsStale:        false,
 	}
 	assertRoundTrip(t, latest)
+
+	trend := TrendPoint{
+		ID:            "55555555-5555-5555-5555-555555555555",
+		MeasurementID: "66666666-6666-6666-6666-666666666666",
+		MetricID:      metric.ID,
+		MetricCode:    "heart_rate",
+		AstronautID:   &astroID,
+		DeviceID:      "77777777-7777-7777-7777-777777777777",
+		Environment:   EnvIVA,
+		UnitCode:      &unitCode,
+		UnitSymbol:    &unitSymbol,
+		ValueNumeric:  &val,
+		Status:        StatusNormal,
+		RecordedAtUTC: now,
+		MET:           "T+001d 02:00:00",
+	}
+	assertRoundTrip(t, trend)
+
+	astroName := "Elena Vance"
+	measNote := "Daily resting health check"
+	valNote := "Within baseline"
+	mediaID := "88888888-8888-8888-8888-888888888888"
+	mediaKind := MediaUltrasound
+	mediaPath := "media/ultrasound/test.png"
+	mediaMime := "image/png"
+	mediaFindings := "No anomalies"
+	var scaleVal int16 = 4
+	textVal := "clear scan"
+
+	historyNumeric := HistoryEntry{
+		MeasurementID:     "66666666-6666-6666-6666-666666666666",
+		ValueID:           "55555555-5555-5555-5555-555555555555",
+		AstronautID:       &astroID,
+		AstronautName:     &astroName,
+		DeviceCode:        "biomonitor_01",
+		DeviceName:        "IVA biomonitor",
+		Environment:       EnvIVA,
+		MetricCode:        "heart_rate",
+		MetricName:        "Heart rate",
+		ValueType:         ValueNumeric,
+		UnitCode:          &unitCode,
+		UnitSymbol:        &unitSymbol,
+		DisplayUnitSymbol: &displaySym,
+		ValueNumeric:      &val,
+		Status:            StatusNormal,
+		RecordedAtUTC:     now,
+		MET:               "T+001d 02:00:00",
+		MeasurementNote:   &measNote,
+		ValueNote:         &valNote,
+	}
+	assertRoundTrip(t, historyNumeric)
+
+	historyMedia := HistoryEntry{
+		MeasurementID:      "99999999-9999-9999-9999-999999999999",
+		ValueID:            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+		AstronautID:        &astroID,
+		AstronautName:      &astroName,
+		DeviceCode:         "ultrasound_01",
+		DeviceName:         "Diagnostic ultrasound",
+		Environment:        EnvIVA,
+		MetricCode:         "ultrasound",
+		MetricName:         "Diagnostic ultrasound",
+		ValueType:          ValueImage,
+		ValueScale:         &scaleVal,
+		ValueText:          &textVal,
+		Status:             StatusNormal,
+		RecordedAtUTC:      now,
+		MET:                "T+001d 02:00:00",
+		MediaAssetID:       &mediaID,
+		MediaKind:          &mediaKind,
+		MediaFilePath:      &mediaPath,
+		MediaMimeType:      &mediaMime,
+		MediaFindings:      &mediaFindings,
+		MediaCapturedAtUTC: &now,
+	}
+	assertRoundTrip(t, historyMedia)
+
+	historyQuery := HistoryQuery{
+		AstronautID: astroID,
+		Limit:       50,
+		Offset:      25,
+	}
+	assertRoundTrip(t, historyQuery)
 
 	alert := AlertEvent{
 		ID:                "alert-1",

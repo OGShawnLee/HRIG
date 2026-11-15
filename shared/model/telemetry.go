@@ -179,6 +179,8 @@ type Metric struct {
 	BaseUnitID        *string          `json:"baseUnitId,omitempty"`
 	BaseUnitCode      *string          `json:"baseUnitCode,omitempty"`
 	BaseUnitSymbol    *string          `json:"baseUnitSymbol,omitempty"`
+	BaseUnitDimension *string          `json:"baseUnitDimension,omitempty"`
+	BaseUnitDecimals  *int16           `json:"baseUnitDecimals,omitempty"`
 	DisplayUnitSymbol *string          `json:"displayUnitSymbol,omitempty"`
 	ScaleMin          *int16           `json:"scaleMin,omitempty"`
 	ScaleMax          *int16           `json:"scaleMax,omitempty"`
@@ -253,10 +255,61 @@ type TrendQuery struct {
 	Limit       int    `json:"limit"`
 }
 
+// TrendPoint represents a single chronological reading returned by GET /api/trends.
+type TrendPoint struct {
+	ID            string          `json:"id"`
+	MeasurementID string          `json:"measurementId"`
+	MetricID      string          `json:"metricId"`
+	MetricCode    string          `json:"metricCode"`
+	AstronautID   *string         `json:"astronautId,omitempty"`
+	DeviceID      string          `json:"deviceId"`
+	Environment   EnvironmentMode `json:"environment"`
+	UnitCode      *string         `json:"unitCode,omitempty"`
+	UnitSymbol    *string         `json:"unitSymbol,omitempty"`
+	ValueNumeric  *float64        `json:"valueNumeric,omitempty"`
+	ValueScale    *int16          `json:"valueScale,omitempty"`
+	ValueText     *string         `json:"valueText,omitempty"`
+	Status        ReadingStatus   `json:"status"`
+	RecordedAtUTC time.Time       `json:"recordedAtUtc"`
+	MET           string          `json:"met"`
+}
+
 // HistoryQuery filters chronological crew history queries (GET /api/history).
 type HistoryQuery struct {
 	AstronautID string `json:"astronautId,omitempty"`
 	Limit       int    `json:"limit"`
+	Offset      int    `json:"offset"`
+}
+
+// HistoryEntry represents a persisted measurement reading (with optional media asset) returned by GET /api/history.
+type HistoryEntry struct {
+	MeasurementID      string          `json:"measurementId"`
+	ValueID            string          `json:"valueId"`
+	AstronautID        *string         `json:"astronautId,omitempty"`
+	AstronautName      *string         `json:"astronautName,omitempty"`
+	DeviceCode         string          `json:"deviceCode"`
+	DeviceName         string          `json:"deviceName"`
+	Environment        EnvironmentMode `json:"environment"`
+	MetricCode         string          `json:"metricCode"`
+	MetricName         string          `json:"metricName"`
+	ValueType          ValueType       `json:"valueType"`
+	UnitCode           *string         `json:"unitCode,omitempty"`
+	UnitSymbol         *string         `json:"unitSymbol,omitempty"`
+	DisplayUnitSymbol  *string         `json:"displayUnitSymbol,omitempty"`
+	ValueNumeric       *float64        `json:"valueNumeric,omitempty"`
+	ValueScale         *int16          `json:"valueScale,omitempty"`
+	ValueText          *string         `json:"valueText,omitempty"`
+	Status             ReadingStatus   `json:"status"`
+	RecordedAtUTC      time.Time       `json:"recordedAtUtc"`
+	MET                string          `json:"met"`
+	MeasurementNote    *string         `json:"measurementNote,omitempty"`
+	ValueNote          *string         `json:"valueNote,omitempty"`
+	MediaAssetID       *string         `json:"mediaAssetId,omitempty"`
+	MediaKind          *MediaKind      `json:"mediaKind,omitempty"`
+	MediaFilePath      *string         `json:"mediaFilePath,omitempty"`
+	MediaMimeType      *string         `json:"mediaMimeType,omitempty"`
+	MediaFindings      *string         `json:"mediaFindings,omitempty"`
+	MediaCapturedAtUTC *time.Time      `json:"mediaCapturedAtUtc,omitempty"`
 }
 
 // AlertEvent represents an in-memory crew alert triggered by a critical reading (RF08).

@@ -15,6 +15,7 @@ import (
 	"hrig/server/internal/db"
 	serverhttp "hrig/server/internal/http"
 	"hrig/server/internal/ingestion"
+	"hrig/server/internal/query"
 	"hrig/server/internal/realtime"
 )
 
@@ -51,11 +52,13 @@ func main() {
 
 	ingester := ingestion.NewService(pool)
 	ingester.SetPublisher(hub)
+	reader := query.NewService(pool, cfg.MissionEpochUTC)
 
 	router := serverhttp.NewRouterWithDeps(cfg, serverhttp.RouterDeps{
 		Ingester: ingester,
 		Realtime: hub,
 		DBPinger: pool,
+		Reader:   reader,
 	})
 
 	srv := &http.Server{

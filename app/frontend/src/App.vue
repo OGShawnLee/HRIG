@@ -4,7 +4,7 @@ import WindowBar from "@/components/WindowBar.vue"
 </script>
 
 <template>
-  <div class="min-h-screen w-full flex flex-col text-main">
+  <div class="min-h-screen w-full flex flex-col bg-ground text-main">
     <WindowBar />
     <div class="flex-1 flex flex-col">
       <RouterView />

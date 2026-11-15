@@ -1,8 +1,8 @@
 # Project Progress
 
 ## Current Task
-- [ ] **Layer Read/Check-in REST Endpoints & Merge `bot-n` Acute Control Panel** *(Next — completing backend & simulator loop)*
-  - Add catalog/trend/history/check-in REST endpoints (`GET /api/astronauts`, `GET /api/metrics`, `GET /api/trends`, `GET /api/history`, `POST /api/checkins`) aligned with [`db/queries/`](../db/queries/) and [`shared/model/telemetry.go`](../shared/model/telemetry.go), plus integrate [`bot-n/`](../bot-n/) manual abnormal/critical panel into [`bot/`](../bot/) using `hrig/shared/model` and `//go:embed`.
+- [ ] **Continue Figma UI Views & Merge [`bot-n/`](../bot-n/) Acute Control Panel** *(Next)*
+  - Port [`bot-n/`](../bot-n/) manual abnormal/critical control panel into [`bot/`](../bot/) using `hrig/shared/model` and `//go:embed`, add `POST /api/checkins` when the manual check-in view is introduced, and build next Figma UI views (crew detail, trends, medical manual, command palette).
 - [ ] **Reconcile [`SPECIFICATION.md`](SPECIFICATION.md) & [`DOMAIN.md`](DOMAIN.md) with Reduced DB Scope & [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)** *(Pending)*
   - **Status enum (`RF01`, [`DOMAIN.md`](DOMAIN.md) vs. [`BD.md`](BD.md) `reading_status`):** DB persists 3 states (`normal`, `abnormal`, `critical`); decide whether to merge **Aviso** + **Valor Anómalo** into `Valor Anómalo` (`abnormal`) and mark **Dato Obsoleto** (`stale`, `RNF10`) explicitly as runtime-only.
   - **Operating modes (`RF15` vs. `environment_mode`):** Trim 4 habitats (`Nave / Estación Espacial / Rover / Base Lunar-Marte`) down to **`iva` / `eva`** modes.
@@ -14,8 +14,7 @@
 - [ ] **Review [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)** *(Pending — Team Review)*
   - Confirm remaining non-DB scope cuts in [`DOMAIN.md`](DOMAIN.md) and [`SPECIFICATION.md`](SPECIFICATION.md).
 - [ ] **Working on the UI & UI Flow** *(In Progress)*
-  - General UI flow defined; designing the core interactive visualization prototype (primary/secondary dashboards, responsive anatomical figure, alerts, and guidance views).
-  - Adding a persistent **Command Palette / Universal Search** ("Dynamic Island" / Omnibox) rendered at all times—accessible via touch/click or `Ctrl+K`—for fast system-wide search and navigation.
+  - Initial dark HUD theme and Figma `HomeView` implemented and connected to Wails v3 bindings and live `/ws/realtime` updates; additional views (command palette actions, medical manual, astronaut detail/trends, anatomical figure) pending next Figma screens.
 
 ## Completed
 - [x] Documented challenge brief in [`INPUT.md`](INPUT.md)
@@ -38,9 +37,13 @@
 - [x] Completed [`.tickets/007-guide-sensor-ingestion/`](../.tickets/007-guide-sensor-ingestion/) — [`GUIDE.md`](../GUIDE.md) `POST /` transactional ingestion (`:80`, `pgxpool`, `metric_threshold` status classification) + [`bot/go.mod`](../bot/go.mod) + `bot:dev`/`db:migrate`/`db:seed` tasks verified against [`bot/main.go`](../bot/main.go) & PostgreSQL 17
 - [x] Completed [`.tickets/008-unify-shared-ingest-schema/`](../.tickets/008-unify-shared-ingest-schema/) — unified `bot/` and `server/` under [`shared/model/ingest.go`](../shared/model/ingest.go) (`IngestRequest`, `IngestReading`, `IngestResult`, `EnvironmentMode`, `ValueType`) verified in workspace and `GOWORK=off` modes + PostgreSQL 17 integration & live `:80` smoke tests
 - [x] Completed [`.tickets/009-realtime-gorilla-ws-server/`](../.tickets/009-realtime-gorilla-ws-server/) — `gorilla/websocket` `Hub` (`GET /ws/realtime`, `GET /api/snapshot`, `POST /api/alerts/{id}/ack`, `GET /health`), post-commit frame publisher, runtime-only `StatusStale` & critical in-memory `AlertEvent` broadcasting, `-race`, PostgreSQL 17 integration & live `:80` WS + `bot` smoke tests
+- [x] Completed [`.tickets/010-server-read-endpoints/`](../.tickets/010-server-read-endpoints/) — `server/internal/query/` + `GET /api/astronauts`, `GET /api/metrics`, `GET /api/trends`, `GET /api/history` + shared `TrendPoint`/`HistoryEntry`/`Metric` unit fields verified via unit, HTTP, and PostgreSQL 17 integration tests
+- [x] Completed [`.tickets/011-wails-backend-api-bindings/`](../.tickets/011-wails-backend-api-bindings/) — `app/client.go` REST + `coder/websocket` realtime bridge emitting `"telemetry:envelope"` & `"telemetry:connection"` events + Wails v3 TypeScript bindings (`@bindings/hrig/...`, `@bindings/events`)
+- [x] Completed [`.tickets/012-frontend-dark-theme-and-home-view/`](../.tickets/012-frontend-dark-theme-and-home-view/) — dark `#000000` UnoCSS theme & window chrome + `useTelemetry.ts` + Figma `HomeView.vue` (`CrewCard`, `EnvironmentCard`, `MedicalManualButton`) verified via `wails3 task client:check` and live server/bot WS smoke check
+- [x] Added `.env` / default local `DATABASE_URL` fallback in [`server/internal/config/config.go`](../server/internal/config/config.go) and top-level `bindings` task alias in [`Taskfile.yml`](../Taskfile.yml)
 
 ## Upcoming
 - [ ] Add automated DB schema/trigger parity test suite covering remaining [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) assertions (`media_asset`, `v_astronaut_age`, `trg_astronaut_updated_at`, `ON DELETE RESTRICT`, timestamp cascade, `003_demo_seed` counts) and retire [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) afterward
 - [ ] Draft & execute 3D anatomical figure ticket (interactive 3D low-poly anatomical figure + left floating procedures/diagnosis modal)
-- [ ] Connect `app/` Wails v3 service + TS bindings to `hrig/shared/model` and `server/` HTTP/WS API
+- [ ] Add manual check-in endpoint (`POST /api/checkins`) + view, and merge [`bot-n/`](../bot-n/) acute control panel into [`bot/`](../bot/)
 - [ ] Translate [`SPECIFICATION.md`](SPECIFICATION.md) and [`DOMAIN.md`](DOMAIN.md) to English and finalize delivery docs
