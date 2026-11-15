@@ -49,6 +49,9 @@ type TelemetryReader interface {
 	ListMetrics(ctx context.Context) ([]model.Metric, error)
 	ListTrends(ctx context.Context, filter query.TrendsFilter) ([]model.TrendPoint, error)
 	ListHistory(ctx context.Context, filter query.HistoryFilter) ([]model.HistoryEntry, error)
+	ListHazards(ctx context.Context, q string) ([]model.SpaceHazard, error)
+	ListProcedures(ctx context.Context, q string, category string, metricCode string) ([]model.MedicalProcedure, error)
+	Search(ctx context.Context, q string, tab string) (model.SearchResults, error)
 }
 
 type RouterDeps struct {
@@ -92,6 +95,9 @@ func NewRouterWithDeps(cfg config.Config, deps RouterDeps) http.Handler {
 	r.Get("/api/metrics", handleListMetrics(deps.Reader))
 	r.Get("/api/trends", handleListTrends(deps.Reader))
 	r.Get("/api/history", handleListHistory(deps.Reader))
+	r.Get("/api/hazards", handleListHazards(deps.Reader))
+	r.Get("/api/procedures", handleListProcedures(deps.Reader))
+	r.Get("/api/search", handleSearch(deps.Reader))
 
 	return r
 }
@@ -357,6 +363,61 @@ func handleListHistory(reader TelemetryReader) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+func handleListHazards(reader TelemetryReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reader == nil {
+			writeError(w, http.StatusServiceUnavailable, "query service unavailable")
+			return
+		}
+		q := strings.TrimSpace(r.URL.Query().Get("q"))
+		items, err := reader.ListHazards(r.Context(), q)
+		if err != nil {
+			writeQueryError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+func handleListProcedures(reader TelemetryReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reader == nil {
+			writeError(w, http.StatusServiceUnavailable, "query service unavailable")
+			return
+		}
+		params := r.URL.Query()
+		q := strings.TrimSpace(params.Get("q"))
+		category := strings.TrimSpace(params.Get("category"))
+		metricCode := strings.TrimSpace(params.Get("metric_code"))
+
+		items, err := reader.ListProcedures(r.Context(), q, category, metricCode)
+		if err != nil {
+			writeQueryError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+func handleSearch(reader TelemetryReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reader == nil {
+			writeError(w, http.StatusServiceUnavailable, "query service unavailable")
+			return
+		}
+		params := r.URL.Query()
+		q := strings.TrimSpace(params.Get("q"))
+		tab := strings.TrimSpace(params.Get("tab"))
+
+		results, err := reader.Search(r.Context(), q, tab)
+		if err != nil {
+			writeQueryError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, results)
 	}
 }
 

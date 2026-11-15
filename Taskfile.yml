@@ -92,6 +92,7 @@ tasks:
     cmds:
       - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig -v ON_ERROR_STOP=1 -f ./db/002_seed.sql
       - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig -v ON_ERROR_STOP=1 -f ./db/003_demo_seed.sql
+      - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig -v ON_ERROR_STOP=1 -f ./db/004_medical_manual.sql
 
   db:sqlc:
     cmds:

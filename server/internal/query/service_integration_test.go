@@ -2,6 +2,10 @@ package query_test
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hrig/server/internal/config"
+	serverhttp "hrig/server/internal/http"
 	"hrig/server/internal/query"
 	"hrig/shared/model"
 )
@@ -58,6 +64,9 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 		filepath.Join("..", "..", "..", "db", "001_schema.sql"),
 		filepath.Join("..", "..", "..", "db", "002_seed.sql"),
 		filepath.Join("..", "..", "..", "db", "003_demo_seed.sql"),
+		filepath.Join("..", "..", "..", "db", "004_medical_manual.sql"),
+		// Re-run 004_medical_manual.sql to verify idempotency on an already-seeded schema.
+		filepath.Join("..", "..", "..", "db", "004_medical_manual.sql"),
 	}
 	for _, path := range sqlFiles {
 		raw, err := os.ReadFile(path)
@@ -289,5 +298,137 @@ func TestIntegration_QueryService(t *testing.T) {
 	}
 	if h0.MediaCapturedAtUTC == nil || !h0.MediaCapturedAtUTC.Equal(time.Date(2026, 11, 16, 8, 59, 30, 0, time.UTC)) {
 		t.Fatalf("unexpected MediaCapturedAtUTC: %v", h0.MediaCapturedAtUTC)
+	}
+
+	// 5. Medical knowledge: 5 hazards & 20 procedures covering all 23 DB metrics
+	hazards, err := svc.ListHazards(ctx, "")
+	if err != nil {
+		t.Fatalf("ListHazards: %v", err)
+	}
+	if len(hazards) != 5 {
+		t.Fatalf("expected 5 space hazards, got %d", len(hazards))
+	}
+	wantHazardCodes := map[string]bool{
+		"space_radiation":       false,
+		"isolation_confinement": false,
+		"distance_from_earth":   false,
+		"gravity_fields":        false,
+		"hostile_closed_env":    false,
+	}
+	for _, h := range hazards {
+		if _, ok := wantHazardCodes[h.Code]; !ok {
+			t.Fatalf("unexpected hazard code %q", h.Code)
+		}
+		wantHazardCodes[h.Code] = true
+		for _, mc := range h.RelatedMetricCodes {
+			if _, ok := byCode[mc]; !ok {
+				t.Fatalf("hazard %q references unknown metric code %q", h.Code, mc)
+			}
+		}
+	}
+	for code, seenHazard := range wantHazardCodes {
+		if !seenHazard {
+			t.Fatalf("missing seeded hazard %q", code)
+		}
+	}
+
+	procs, err := svc.ListProcedures(ctx, "", "", "")
+	if err != nil {
+		t.Fatalf("ListProcedures: %v", err)
+	}
+	if len(procs) != 20 {
+		t.Fatalf("expected 20 active medical procedures, got %d", len(procs))
+	}
+	coveredMetrics := make(map[string]bool, len(byCode))
+	for _, p := range procs {
+		if !p.Escalation.IsValid() {
+			t.Fatalf("procedure %q has invalid escalation %q", p.Code, p.Escalation)
+		}
+		if len(p.Steps) == 0 || len(p.Warnings) == 0 || len(p.Keywords) == 0 {
+			t.Fatalf("procedure %q missing steps/warnings/keywords", p.Code)
+		}
+		for _, mc := range p.RelatedMetricCodes {
+			if _, ok := byCode[mc]; !ok {
+				t.Fatalf("procedure %q references unknown metric code %q", p.Code, mc)
+			}
+			coveredMetrics[mc] = true
+		}
+		for _, hc := range p.HazardCodes {
+			if _, ok := wantHazardCodes[hc]; !ok {
+				t.Fatalf("procedure %q references unknown hazard code %q", p.Code, hc)
+			}
+		}
+	}
+	for mc := range byCode {
+		if !coveredMetrics[mc] {
+			t.Fatalf("metric %q is not referenced by any seeded medical procedure", mc)
+		}
+	}
+
+	// Filtering by category, metric_code, and symptom keyword
+	emergProcs, err := svc.ListProcedures(ctx, "", "emergency", "")
+	if err != nil {
+		t.Fatalf("ListProcedures(category=emergency): %v", err)
+	}
+	if len(emergProcs) != 3 {
+		t.Fatalf("expected 3 emergency procedures, got %d", len(emergProcs))
+	}
+
+	spo2Procs, err := svc.ListProcedures(ctx, "", "", "spo2")
+	if err != nil {
+		t.Fatalf("ListProcedures(metric_code=spo2): %v", err)
+	}
+	if len(spo2Procs) < 3 {
+		t.Fatalf("expected at least 3 procedures linked to spo2, got %d", len(spo2Procs))
+	}
+
+	solarProcs, err := svc.ListProcedures(ctx, "solar storm", "", "")
+	if err != nil {
+		t.Fatalf("ListProcedures(q='solar storm'): %v", err)
+	}
+	if len(solarProcs) != 1 || solarProcs[0].Code != "acute_radiation_spe" {
+		t.Fatalf("expected acute_radiation_spe for 'solar storm', got %+v", solarProcs)
+	}
+
+	// 6. Unified Search & HTTP /api/search integration
+	if _, err := svc.Search(ctx, "oxygen", "bogus"); !errors.Is(err, query.ErrBadRequest) {
+		t.Fatalf("expected ErrBadRequest for invalid search tab, got %v", err)
+	}
+
+	router := serverhttp.NewRouterWithDeps(config.Load(), serverhttp.RouterDeps{
+		Reader: svc,
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/search?q=ana&tab=crew", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/search?q=ana&tab=crew expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	var crewRes model.SearchResults
+	if err := json.Unmarshal(rec.Body.Bytes(), &crewRes); err != nil {
+		t.Fatalf("decode crew search: %v", err)
+	}
+	if len(crewRes.Astronauts) != 1 || crewRes.Astronauts[0].FullName != "Ana Torres" ||
+		len(crewRes.Procedures) != 0 || len(crewRes.Hazards) != 0 || len(crewRes.Metrics) != 0 {
+		t.Fatalf("unexpected crew search payload: %+v", crewRes)
+	}
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/search?q=oxygen&tab=all", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/search?q=oxygen&tab=all expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	var allRes model.SearchResults
+	if err := json.Unmarshal(rec.Body.Bytes(), &allRes); err != nil {
+		t.Fatalf("decode all search: %v", err)
+	}
+	if len(allRes.Procedures) == 0 || len(allRes.Metrics) == 0 {
+		t.Fatalf("expected oxygen search to match procedures and metrics, got %+v", allRes)
+	}
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/search?q=oxygen&tab=invalid", nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /api/search?tab=invalid expected 400, got %d (%s)", rec.Code, rec.Body.String())
 	}
 }

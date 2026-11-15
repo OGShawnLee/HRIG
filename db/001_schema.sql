@@ -12,6 +12,7 @@ CREATE TYPE environment_mode AS ENUM ('iva', 'eva');
 CREATE TYPE device_kind      AS ENUM ('wearable', 'environment_sensor', 'manual', 'lab_assay', 'imaging');
 CREATE TYPE media_kind       AS ENUM ('ultrasound', 'ocular');
 CREATE TYPE reading_status   AS ENUM ('normal', 'abnormal', 'critical');
+CREATE TYPE escalation_level AS ENUM ('self_care', 'cmo', 'flight_surgeon');
 
 -- ----------------------------------------------------------------------------
 -- 1. astronaut
@@ -160,6 +161,49 @@ CREATE TABLE media_asset (
     captured_at_utc timestamptz,
     CONSTRAINT media_asset_mime CHECK (mime_type IN ('image/jpeg', 'image/png', 'application/pdf'))
 );
+
+-- ----------------------------------------------------------------------------
+-- 8. space_hazard
+-- ----------------------------------------------------------------------------
+CREATE TABLE space_hazard (
+    id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code                 text NOT NULL UNIQUE,
+    name                 text NOT NULL,
+    summary              text NOT NULL,
+    clinical_impact      text NOT NULL,
+    related_metric_codes text[] NOT NULL DEFAULT '{}',
+    source               text NOT NULL DEFAULT 'NASA HRP Five Hazards',
+    display_order        smallint NOT NULL DEFAULT 0
+);
+
+-- ----------------------------------------------------------------------------
+-- 9. medical_procedure
+-- ----------------------------------------------------------------------------
+CREATE TABLE medical_procedure (
+    id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code                 text NOT NULL UNIQUE,
+    title                text NOT NULL,
+    category             text NOT NULL,
+    body_system          text NOT NULL,
+    summary              text NOT NULL,
+    when_to_use          text NOT NULL,
+    escalation           escalation_level NOT NULL DEFAULT 'self_care',
+    estimated_minutes    smallint NOT NULL DEFAULT 5,
+    environment          environment_mode,
+    equipment            text[] NOT NULL DEFAULT '{}',
+    steps                text[] NOT NULL DEFAULT '{}',
+    warnings             text[] NOT NULL DEFAULT '{}',
+    related_metric_codes text[] NOT NULL DEFAULT '{}',
+    hazard_codes         text[] NOT NULL DEFAULT '{}',
+    keywords             text[] NOT NULL DEFAULT '{}',
+    source               text NOT NULL DEFAULT 'NASA HRP / demo - clinical review required',
+    is_active            boolean NOT NULL DEFAULT true,
+    display_order        smallint NOT NULL DEFAULT 0,
+    CONSTRAINT medical_procedure_est_minutes CHECK (estimated_minutes > 0),
+    CONSTRAINT medical_procedure_has_steps   CHECK (array_length(steps, 1) >= 1)
+);
+
+CREATE INDEX idx_medical_procedure_active ON medical_procedure (is_active, display_order, code);
 
 -- ----------------------------------------------------------------------------
 -- Triggers

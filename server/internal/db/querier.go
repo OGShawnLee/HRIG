@@ -25,8 +25,12 @@ type Querier interface {
 	ListActiveMetrics(ctx context.Context) ([]ListActiveMetricsRow, error)
 	ListHistory(ctx context.Context, arg ListHistoryParams) ([]ListHistoryRow, error)
 	ListLatestReadingsByMetric(ctx context.Context, astronautID pgtype.UUID) ([]ListLatestReadingsByMetricRow, error)
+	ListMedicalProcedures(ctx context.Context) ([]MedicalProcedure, error)
+	ListSpaceHazards(ctx context.Context) ([]SpaceHazard, error)
 	ListTrendsByMetric(ctx context.Context, arg ListTrendsByMetricParams) ([]ListTrendsByMetricRow, error)
 	ListUnits(ctx context.Context) ([]Unit, error)
+	SearchMedicalProcedures(ctx context.Context, arg SearchMedicalProceduresParams) ([]MedicalProcedure, error)
+	SearchSpaceHazards(ctx context.Context, q_ string) ([]SpaceHazard, error)
 }
 
 var _ Querier = (*Queries)(nil)

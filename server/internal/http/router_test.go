@@ -537,6 +537,9 @@ type mockReader struct {
 	listMetricsFn    func(ctx context.Context) ([]model.Metric, error)
 	listTrendsFn     func(ctx context.Context, filter query.TrendsFilter) ([]model.TrendPoint, error)
 	listHistoryFn    func(ctx context.Context, filter query.HistoryFilter) ([]model.HistoryEntry, error)
+	listHazardsFn    func(ctx context.Context, q string) ([]model.SpaceHazard, error)
+	listProceduresFn func(ctx context.Context, q string, category string, metricCode string) ([]model.MedicalProcedure, error)
+	searchFn         func(ctx context.Context, q string, tab string) (model.SearchResults, error)
 }
 
 func (m mockReader) ListAstronauts(ctx context.Context) ([]model.Astronaut, error) {
@@ -567,6 +570,34 @@ func (m mockReader) ListHistory(ctx context.Context, filter query.HistoryFilter)
 	return []model.HistoryEntry{}, nil
 }
 
+func (m mockReader) ListHazards(ctx context.Context, q string) ([]model.SpaceHazard, error) {
+	if m.listHazardsFn != nil {
+		return m.listHazardsFn(ctx, q)
+	}
+	return []model.SpaceHazard{}, nil
+}
+
+func (m mockReader) ListProcedures(ctx context.Context, q string, category string, metricCode string) ([]model.MedicalProcedure, error) {
+	if m.listProceduresFn != nil {
+		return m.listProceduresFn(ctx, q, category, metricCode)
+	}
+	return []model.MedicalProcedure{}, nil
+}
+
+func (m mockReader) Search(ctx context.Context, q string, tab string) (model.SearchResults, error) {
+	if m.searchFn != nil {
+		return m.searchFn(ctx, q, tab)
+	}
+	return model.SearchResults{
+		Query:      q,
+		Tab:        "all",
+		Astronauts: []model.Astronaut{},
+		Procedures: []model.MedicalProcedure{},
+		Hazards:    []model.SpaceHazard{},
+		Metrics:    []model.Metric{},
+	}, nil
+}
+
 func TestReadEndpoints(t *testing.T) {
 	cfg := config.Load()
 
@@ -577,6 +608,9 @@ func TestReadEndpoints(t *testing.T) {
 			"/api/metrics",
 			"/api/trends?metric_code=spo2",
 			"/api/history",
+			"/api/hazards",
+			"/api/procedures",
+			"/api/search?q=spo2",
 		} {
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
@@ -801,5 +835,107 @@ func TestReadEndpoints(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("hazards_procedures_and_search_cases", func(t *testing.T) {
+		var gotHazardQ string
+		var gotProcQ, gotProcCat, gotProcMetric string
+		var gotSearchQ, gotSearchTab string
+
+		router := NewRouterWithDeps(cfg, RouterDeps{
+			Reader: mockReader{
+				listHazardsFn: func(ctx context.Context, q string) ([]model.SpaceHazard, error) {
+					gotHazardQ = q
+					return []model.SpaceHazard{
+						{
+							ID:                 "11111111-1111-4111-8111-111111111111",
+							Code:               "space_radiation",
+							Name:               "Space Radiation",
+							Summary:            "Ionizing radiation",
+							ClinicalImpact:     "DNA damage",
+							RelatedMetricCodes: []string{"radiation_rate"},
+							Source:             "NASA HRP Five Hazards",
+							DisplayOrder:       1,
+						},
+					}, nil
+				},
+				listProceduresFn: func(ctx context.Context, q string, category string, metricCode string) ([]model.MedicalProcedure, error) {
+					gotProcQ = q
+					gotProcCat = category
+					gotProcMetric = metricCode
+					return []model.MedicalProcedure{
+						{
+							ID:                 "22222222-2222-4222-8222-222222222222",
+							Code:               "hypoxia_cabin_o2",
+							Title:              "Hypoxia & Low Cabin O2 Response",
+							Category:           "respiratory_cabin",
+							BodySystem:         "respiratory",
+							Escalation:         model.EscalationCMO,
+							EstimatedMinutes:   10,
+							Equipment:          []string{"Pulse oximeter"},
+							Steps:              []string{"Verify SpO2"},
+							Warnings:           []string{"Escalate if cyanosis"},
+							RelatedMetricCodes: []string{"cabin_o2", "spo2"},
+							HazardCodes:        []string{"hostile_closed_env"},
+							Keywords:           []string{"shortness of breath"},
+							Source:             "NASA HRP / ISS Operational Checklist (demo - clinical review required)",
+							DisplayOrder:       1,
+						},
+					}, nil
+				},
+				searchFn: func(ctx context.Context, q string, tab string) (model.SearchResults, error) {
+					gotSearchQ = q
+					gotSearchTab = tab
+					if tab == "bad" {
+						return model.SearchResults{}, errors.Join(query.ErrBadRequest, errors.New("invalid tab"))
+					}
+					return model.SearchResults{
+						Query:      q,
+						Tab:        "procedures",
+						Astronauts: []model.Astronaut{},
+						Procedures: []model.MedicalProcedure{{Code: "hypoxia_cabin_o2"}},
+						Hazards:    []model.SpaceHazard{},
+						Metrics:    []model.Metric{},
+					}, nil
+				},
+			},
+		})
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/hazards?q=%20radiation%20", nil))
+		if rec.Code != http.StatusOK || gotHazardQ != "radiation" {
+			t.Fatalf("GET /api/hazards expected 200 and q=radiation, got %d q=%q (%s)", rec.Code, gotHazardQ, rec.Body.String())
+		}
+		var hazards []model.SpaceHazard
+		if err := json.Unmarshal(rec.Body.Bytes(), &hazards); err != nil || len(hazards) != 1 || hazards[0].Code != "space_radiation" {
+			t.Fatalf("unexpected hazards payload: err=%v body=%s", err, rec.Body.String())
+		}
+
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/procedures?q=hypoxia&category=respiratory_cabin&metric_code=spo2", nil))
+		if rec.Code != http.StatusOK || gotProcQ != "hypoxia" || gotProcCat != "respiratory_cabin" || gotProcMetric != "spo2" {
+			t.Fatalf("GET /api/procedures expected 200 and parsed params, got %d (%s)", rec.Code, rec.Body.String())
+		}
+		var procs []model.MedicalProcedure
+		if err := json.Unmarshal(rec.Body.Bytes(), &procs); err != nil || len(procs) != 1 || procs[0].Code != "hypoxia_cabin_o2" {
+			t.Fatalf("unexpected procedures payload: err=%v body=%s", err, rec.Body.String())
+		}
+
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/search?q=hypoxia&tab=procedures", nil))
+		if rec.Code != http.StatusOK || gotSearchQ != "hypoxia" || gotSearchTab != "procedures" {
+			t.Fatalf("GET /api/search expected 200 and parsed params, got %d (%s)", rec.Code, rec.Body.String())
+		}
+		var sRes model.SearchResults
+		if err := json.Unmarshal(rec.Body.Bytes(), &sRes); err != nil || sRes.Tab != "procedures" || len(sRes.Procedures) != 1 {
+			t.Fatalf("unexpected search payload: err=%v body=%s", err, rec.Body.String())
+		}
+
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/search?q=x&tab=bad", nil))
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("GET /api/search?tab=bad expected 400, got %d (%s)", rec.Code, rec.Body.String())
+		}
+	})
 }
+
 

@@ -345,6 +345,207 @@ func (s *Service) ListHistory(ctx context.Context, filter HistoryFilter) ([]mode
 	return out, nil
 }
 
+func (s *Service) ListHazards(ctx context.Context, query string) ([]model.SpaceHazard, error) {
+	if s.querier == nil {
+		return nil, errors.New("query service is not configured")
+	}
+
+	q := strings.TrimSpace(query)
+	var (
+		rows []db.SpaceHazard
+		err  error
+	)
+	if q == "" {
+		rows, err = s.querier.ListSpaceHazards(ctx)
+	} else {
+		rows, err = s.querier.SearchSpaceHazards(ctx, q)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]model.SpaceHazard, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, model.SpaceHazard{
+			ID:                 formatUUID(row.ID),
+			Code:               row.Code,
+			Name:               row.Name,
+			Summary:            row.Summary,
+			ClinicalImpact:     row.ClinicalImpact,
+			RelatedMetricCodes: normalizeStringSlice(row.RelatedMetricCodes),
+			Source:             row.Source,
+			DisplayOrder:       row.DisplayOrder,
+		})
+	}
+	return out, nil
+}
+
+func (s *Service) ListProcedures(ctx context.Context, query string, category string, metricCode string) ([]model.MedicalProcedure, error) {
+	if s.querier == nil {
+		return nil, errors.New("query service is not configured")
+	}
+
+	q := strings.TrimSpace(query)
+	cat := strings.TrimSpace(category)
+	mc := strings.TrimSpace(metricCode)
+
+	var (
+		rows []db.MedicalProcedure
+		err  error
+	)
+	if q == "" && cat == "" && mc == "" {
+		rows, err = s.querier.ListMedicalProcedures(ctx)
+	} else {
+		rows, err = s.querier.SearchMedicalProcedures(ctx, db.SearchMedicalProceduresParams{
+			Q:          q,
+			Category:   cat,
+			MetricCode: mc,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]model.MedicalProcedure, 0, len(rows))
+	for _, row := range rows {
+		var env *model.EnvironmentMode
+		if row.Environment.Valid {
+			e := model.EnvironmentMode(row.Environment.EnvironmentMode)
+			env = &e
+		}
+		out = append(out, model.MedicalProcedure{
+			ID:                 formatUUID(row.ID),
+			Code:               row.Code,
+			Title:              row.Title,
+			Category:           row.Category,
+			BodySystem:         row.BodySystem,
+			Summary:            row.Summary,
+			WhenToUse:          row.WhenToUse,
+			Escalation:         model.EscalationLevel(row.Escalation),
+			EstimatedMinutes:   row.EstimatedMinutes,
+			Environment:        env,
+			Equipment:          normalizeStringSlice(row.Equipment),
+			Steps:              normalizeStringSlice(row.Steps),
+			Warnings:           normalizeStringSlice(row.Warnings),
+			RelatedMetricCodes: normalizeStringSlice(row.RelatedMetricCodes),
+			HazardCodes:        normalizeStringSlice(row.HazardCodes),
+			Keywords:           normalizeStringSlice(row.Keywords),
+			Source:             row.Source,
+			DisplayOrder:       row.DisplayOrder,
+		})
+	}
+	return out, nil
+}
+
+func (s *Service) Search(ctx context.Context, q string, tab string) (model.SearchResults, error) {
+	if s.querier == nil {
+		return model.SearchResults{}, errors.New("query service is not configured")
+	}
+
+	trimmedQ := strings.TrimSpace(q)
+	trimmedTab := strings.TrimSpace(tab)
+	if trimmedTab == "" {
+		trimmedTab = "all"
+	}
+
+	switch trimmedTab {
+	case "all", "crew", "procedures", "hazards_metrics":
+	default:
+		return model.SearchResults{}, fmt.Errorf("%w: invalid tab %q (expected all, crew, procedures, or hazards_metrics)", ErrBadRequest, trimmedTab)
+	}
+
+	res := model.SearchResults{
+		Query:      trimmedQ,
+		Tab:        trimmedTab,
+		Astronauts: []model.Astronaut{},
+		Procedures: []model.MedicalProcedure{},
+		Hazards:    []model.SpaceHazard{},
+		Metrics:    []model.Metric{},
+	}
+
+	if trimmedTab == "all" || trimmedTab == "crew" {
+		astronauts, err := s.ListAstronauts(ctx)
+		if err != nil {
+			return model.SearchResults{}, err
+		}
+		if trimmedQ == "" {
+			res.Astronauts = astronauts
+		} else {
+			needle := strings.ToLower(trimmedQ)
+			for _, a := range astronauts {
+				if matchesAstronautQuery(a, needle) {
+					res.Astronauts = append(res.Astronauts, a)
+				}
+			}
+		}
+	}
+
+	if trimmedTab == "all" || trimmedTab == "procedures" {
+		procs, err := s.ListProcedures(ctx, trimmedQ, "", "")
+		if err != nil {
+			return model.SearchResults{}, err
+		}
+		res.Procedures = procs
+	}
+
+	if trimmedTab == "all" || trimmedTab == "hazards_metrics" {
+		hazards, err := s.ListHazards(ctx, trimmedQ)
+		if err != nil {
+			return model.SearchResults{}, err
+		}
+		res.Hazards = hazards
+
+		metrics, err := s.ListMetrics(ctx)
+		if err != nil {
+			return model.SearchResults{}, err
+		}
+		if trimmedQ == "" {
+			res.Metrics = metrics
+		} else {
+			needle := strings.ToLower(trimmedQ)
+			for _, m := range metrics {
+				if matchesMetricQuery(m, needle) {
+					res.Metrics = append(res.Metrics, m)
+				}
+			}
+		}
+	}
+
+	return res, nil
+}
+
+func matchesAstronautQuery(a model.Astronaut, lowerNeedle string) bool {
+	if strings.Contains(strings.ToLower(a.FullName), lowerNeedle) ||
+		strings.Contains(strings.ToLower(a.NationalityCode), lowerNeedle) {
+		return true
+	}
+	if a.NationalityLabel != nil && strings.Contains(strings.ToLower(*a.NationalityLabel), lowerNeedle) {
+		return true
+	}
+	return false
+}
+
+func matchesMetricQuery(m model.Metric, lowerNeedle string) bool {
+	if strings.Contains(strings.ToLower(m.Code), lowerNeedle) ||
+		strings.Contains(strings.ToLower(m.Name), lowerNeedle) ||
+		strings.Contains(strings.ToLower(m.Category), lowerNeedle) {
+		return true
+	}
+	if m.ShortName != nil && strings.Contains(strings.ToLower(*m.ShortName), lowerNeedle) {
+		return true
+	}
+	return false
+}
+
+func normalizeStringSlice(in []string) []string {
+	if in == nil {
+		return []string{}
+	}
+	out := make([]string, len(in))
+	copy(out, in)
+	return out
+}
+
 func parseOptionalUUID(raw *string) (pgtype.UUID, error) {
 	if raw == nil {
 		return pgtype.UUID{}, nil

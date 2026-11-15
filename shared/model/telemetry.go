@@ -129,6 +129,25 @@ func (m MediaKind) IsValid() bool {
 	}
 }
 
+// EscalationLevel indicates the clinical escalation tier for a medical procedure.
+type EscalationLevel string
+
+const (
+	EscalationSelfCare      EscalationLevel = "self_care"
+	EscalationCMO           EscalationLevel = "cmo"
+	EscalationFlightSurgeon EscalationLevel = "flight_surgeon"
+)
+
+// IsValid reports whether e is a recognized EscalationLevel value.
+func (e EscalationLevel) IsValid() bool {
+	switch e {
+	case EscalationSelfCare, EscalationCMO, EscalationFlightSurgeon:
+		return true
+	default:
+		return false
+	}
+}
+
 // Astronaut represents a crew member profile with derived age.
 type Astronaut struct {
 	ID               string    `json:"id"`
@@ -366,3 +385,99 @@ type HealthStatus struct {
 	RealtimeClients int       `json:"realtimeClients"`
 	IngestClients   int       `json:"ingestClients"`
 }
+
+// SpaceHazard represents one of NASA's five human spaceflight hazards.
+type SpaceHazard struct {
+	ID                 string   `json:"id"`
+	Code               string   `json:"code"`
+	Name               string   `json:"name"`
+	Summary            string   `json:"summary"`
+	ClinicalImpact     string   `json:"clinicalImpact"`
+	RelatedMetricCodes []string `json:"relatedMetricCodes"`
+	Source             string   `json:"source"`
+	DisplayOrder       int16    `json:"displayOrder"`
+}
+
+// Normalize ensures slice fields on SpaceHazard are non-nil for JSON serialization.
+func (h *SpaceHazard) Normalize() {
+	if h.RelatedMetricCodes == nil {
+		h.RelatedMetricCodes = []string{}
+	}
+}
+
+// MedicalProcedure represents an operational space medicine checklist or measurement guide.
+type MedicalProcedure struct {
+	ID                 string           `json:"id"`
+	Code               string           `json:"code"`
+	Title              string           `json:"title"`
+	Category           string           `json:"category"`
+	BodySystem         string           `json:"bodySystem"`
+	Summary            string           `json:"summary"`
+	WhenToUse          string           `json:"whenToUse"`
+	Escalation         EscalationLevel  `json:"escalation"`
+	EstimatedMinutes   int16            `json:"estimatedMinutes"`
+	Environment        *EnvironmentMode `json:"environment,omitempty"`
+	Equipment          []string         `json:"equipment"`
+	Steps              []string         `json:"steps"`
+	Warnings           []string         `json:"warnings"`
+	RelatedMetricCodes []string         `json:"relatedMetricCodes"`
+	HazardCodes        []string         `json:"hazardCodes"`
+	Keywords           []string         `json:"keywords"`
+	Source             string           `json:"source"`
+	DisplayOrder       int16            `json:"displayOrder"`
+}
+
+// Normalize ensures slice fields on MedicalProcedure are non-nil for JSON serialization.
+func (p *MedicalProcedure) Normalize() {
+	if p.Equipment == nil {
+		p.Equipment = []string{}
+	}
+	if p.Steps == nil {
+		p.Steps = []string{}
+	}
+	if p.Warnings == nil {
+		p.Warnings = []string{}
+	}
+	if p.RelatedMetricCodes == nil {
+		p.RelatedMetricCodes = []string{}
+	}
+	if p.HazardCodes == nil {
+		p.HazardCodes = []string{}
+	}
+	if p.Keywords == nil {
+		p.Keywords = []string{}
+	}
+}
+
+// SearchResults represents the unified cross-entity search payload returned by GET /api/search.
+type SearchResults struct {
+	Query      string             `json:"query"`
+	Tab        string             `json:"tab"`
+	Astronauts []Astronaut        `json:"astronauts"`
+	Procedures []MedicalProcedure `json:"procedures"`
+	Hazards    []SpaceHazard      `json:"hazards"`
+	Metrics    []Metric           `json:"metrics"`
+}
+
+// Normalize ensures slice fields on SearchResults are non-nil for JSON serialization.
+func (s *SearchResults) Normalize() {
+	if s.Astronauts == nil {
+		s.Astronauts = []Astronaut{}
+	}
+	if s.Procedures == nil {
+		s.Procedures = []MedicalProcedure{}
+	}
+	for i := range s.Procedures {
+		s.Procedures[i].Normalize()
+	}
+	if s.Hazards == nil {
+		s.Hazards = []SpaceHazard{}
+	}
+	for i := range s.Hazards {
+		s.Hazards[i].Normalize()
+	}
+	if s.Metrics == nil {
+		s.Metrics = []Metric{}
+	}
+}
+

@@ -98,6 +98,49 @@ func (ns NullEnvironmentMode) Value() (driver.Value, error) {
 	return string(ns.EnvironmentMode), nil
 }
 
+type EscalationLevel string
+
+const (
+	EscalationLevelSelfCare      EscalationLevel = "self_care"
+	EscalationLevelCmo           EscalationLevel = "cmo"
+	EscalationLevelFlightSurgeon EscalationLevel = "flight_surgeon"
+)
+
+func (e *EscalationLevel) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EscalationLevel(s)
+	case string:
+		*e = EscalationLevel(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EscalationLevel: %T", src)
+	}
+	return nil
+}
+
+type NullEscalationLevel struct {
+	EscalationLevel EscalationLevel `json:"escalation_level"`
+	Valid           bool            `json:"valid"` // Valid is true if EscalationLevel is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEscalationLevel) Scan(value interface{}) error {
+	if value == nil {
+		ns.EscalationLevel, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EscalationLevel.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEscalationLevel) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EscalationLevel), nil
+}
+
 type MediaKind string
 
 const (
@@ -320,6 +363,28 @@ type MediaAsset struct {
 	CapturedAtUtc pgtype.Timestamptz `json:"captured_at_utc"`
 }
 
+type MedicalProcedure struct {
+	ID                 pgtype.UUID         `json:"id"`
+	Code               string              `json:"code"`
+	Title              string              `json:"title"`
+	Category           string              `json:"category"`
+	BodySystem         string              `json:"body_system"`
+	Summary            string              `json:"summary"`
+	WhenToUse          string              `json:"when_to_use"`
+	Escalation         EscalationLevel     `json:"escalation"`
+	EstimatedMinutes   int16               `json:"estimated_minutes"`
+	Environment        NullEnvironmentMode `json:"environment"`
+	Equipment          []string            `json:"equipment"`
+	Steps              []string            `json:"steps"`
+	Warnings           []string            `json:"warnings"`
+	RelatedMetricCodes []string            `json:"related_metric_codes"`
+	HazardCodes        []string            `json:"hazard_codes"`
+	Keywords           []string            `json:"keywords"`
+	Source             string              `json:"source"`
+	IsActive           bool                `json:"is_active"`
+	DisplayOrder       int16               `json:"display_order"`
+}
+
 type Metric struct {
 	ID                pgtype.UUID `json:"id"`
 	Code              string      `json:"code"`
@@ -347,6 +412,17 @@ type MetricThreshold struct {
 	ClassificationMode string             `json:"classification_mode"`
 	Source             string             `json:"source"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SpaceHazard struct {
+	ID                 pgtype.UUID `json:"id"`
+	Code               string      `json:"code"`
+	Name               string      `json:"name"`
+	Summary            string      `json:"summary"`
+	ClinicalImpact     string      `json:"clinical_impact"`
+	RelatedMetricCodes []string    `json:"related_metric_codes"`
+	Source             string      `json:"source"`
+	DisplayOrder       int16       `json:"display_order"`
 }
 
 type Unit struct {

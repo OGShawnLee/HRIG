@@ -47,6 +47,12 @@ func TestEnumValidation(t *testing.T) {
 	if !MediaUltrasound.IsValid() || !MediaOcular.IsValid() {
 		t.Fatal("expected ultrasound and ocular to be valid MediaKind")
 	}
+	if !EscalationSelfCare.IsValid() || !EscalationCMO.IsValid() || !EscalationFlightSurgeon.IsValid() {
+		t.Fatal("expected self_care, cmo, and flight_surgeon to be valid EscalationLevel")
+	}
+	if EscalationLevel("").IsValid() || EscalationLevel("physician").IsValid() {
+		t.Fatal("expected unknown EscalationLevel to be invalid")
+	}
 }
 
 func TestJSONRoundTrip(t *testing.T) {
@@ -270,6 +276,75 @@ func TestJSONRoundTrip(t *testing.T) {
 		IngestClients:   1,
 	}
 	assertRoundTrip(t, health)
+
+	hazard := SpaceHazard{
+		ID:                 "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+		Code:               "space_radiation",
+		Name:               "Space Radiation",
+		Summary:            "Ionizing radiation beyond Earth's magnetosphere.",
+		ClinicalImpact:     "DNA damage and immune system changes.",
+		RelatedMetricCodes: []string{"radiation_rate", "radiation_dose_cum"},
+		Source:             "NASA HRP Five Hazards",
+		DisplayOrder:       1,
+	}
+	assertRoundTrip(t, hazard)
+
+	envIVA := EnvIVA
+	proc := MedicalProcedure{
+		ID:                 "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+		Code:               "hypoxia_cabin_o2",
+		Title:              "Hypoxia & Low Cabin O2 Response",
+		Category:           "respiratory_cabin",
+		BodySystem:         "respiratory",
+		Summary:            "Operational checklist for low cabin O2.",
+		WhenToUse:          "When cabin O2 drops or SpO2 trends downward.",
+		Escalation:         EscalationCMO,
+		EstimatedMinutes:   10,
+		Environment:        &envIVA,
+		Equipment:          []string{"Pulse oximeter"},
+		Steps:              []string{"Check cabin O2 sensor", "Verify SpO2"},
+		Warnings:           []string{"Escalate to Flight Surgeon if cyanosis appears"},
+		RelatedMetricCodes: []string{"cabin_o2", "spo2"},
+		HazardCodes:        []string{"hostile_closed_env"},
+		Keywords:           []string{"hypoxia", "shortness of breath"},
+		Source:             "NASA HRP / ISS Operational Checklist (demo - clinical review required)",
+		DisplayOrder:       1,
+	}
+	assertRoundTrip(t, proc)
+
+	searchRes := SearchResults{
+		Query:      "oxygen",
+		Tab:        "all",
+		Astronauts: []Astronaut{astronaut},
+		Procedures: []MedicalProcedure{proc},
+		Hazards:    []SpaceHazard{hazard},
+		Metrics:    []Metric{metric},
+	}
+	assertRoundTrip(t, searchRes)
+}
+
+func TestMedicalKnowledgeNormalization(t *testing.T) {
+	var res SearchResults
+	res.Query = "spo2"
+	res.Tab = "all"
+	res.Procedures = []MedicalProcedure{{Code: "hypoxia_cabin_o2"}}
+	res.Hazards = []SpaceHazard{{Code: "hostile_closed_env"}}
+	res.Normalize()
+
+	b, err := json.Marshal(res)
+	if err != nil {
+		t.Fatalf("marshal normalized SearchResults: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(b, &raw); err != nil {
+		t.Fatalf("unmarshal SearchResults map: %v", err)
+	}
+	for _, key := range []string{"astronauts", "procedures", "hazards", "metrics"} {
+		arr, ok := raw[key].([]any)
+		if !ok || arr == nil {
+			t.Fatalf("expected non-nil JSON array for %q, got %#v", key, raw[key])
+		}
+	}
 }
 
 func assertRoundTrip[T any](t *testing.T, v T) {
