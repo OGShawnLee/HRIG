@@ -164,7 +164,7 @@ function dispatchTelemetryStatusWithRouter(
   payload: AlertDispatchPayload,
 ): void {
   if (payload.status === "normal") {
-    clearAlertIfResolved()
+    clearAlertIfResolvedWithRouter(router)
     return
   }
 
@@ -205,7 +205,8 @@ export function dispatchTelemetryStatus(payload: AlertDispatchPayload): void {
   dispatchTelemetryStatusWithRouter(null, payload)
 }
 
-export function clearAlertIfResolved(
+function clearAlertIfResolvedWithRouter(
+  router: Router | null,
   remainingAlert: AlertDispatchPayload | null = null,
   activeEpisodeKeys?: ReadonlySet<string>,
 ): void {
@@ -221,17 +222,43 @@ export function clearAlertIfResolved(
     lastStatus.value = "normal"
     lastTriggeredAlert.value = null
     handledEpisodeKeys.clear()
+
+    const targetRouter = resolveRouter(router)
+    if (targetRouter && isAlertRouteName(targetRouter.currentRoute.value.name)) {
+      closeActiveAlertWithRouter(targetRouter)
+    }
     return
   }
 
   lastStatus.value = remainingAlert.status
   lastTriggeredAlert.value = remainingAlert
+
+  const targetRouter = resolveRouter(router)
+  if (
+    targetRouter &&
+    targetRouter.currentRoute.value.name === "warning-alert" &&
+    remainingAlert.status === "abnormal"
+  ) {
+    void targetRouter.push({ name: "support-alert" })
+  }
 }
 
-function resetDemoStatus(): void {
+export function clearAlertIfResolved(
+  remainingAlert: AlertDispatchPayload | null = null,
+  activeEpisodeKeys?: ReadonlySet<string>,
+): void {
+  clearAlertIfResolvedWithRouter(null, remainingAlert, activeEpisodeKeys)
+}
+
+function resetDemoStatusWithRouter(router: Router | null): void {
   lastStatus.value = "normal"
   lastTriggeredAlert.value = null
   handledEpisodeKeys.clear()
+
+  const targetRouter = resolveRouter(router)
+  if (targetRouter && isAlertRouteName(targetRouter.currentRoute.value.name)) {
+    closeActiveAlertWithRouter(targetRouter)
+  }
 }
 
 export function useTelemetryNavigation() {
@@ -254,7 +281,10 @@ export function useTelemetryNavigation() {
     closeActiveAlert: () => closeActiveAlertWithRouter(router),
     dispatchTelemetryStatus: (payload: AlertDispatchPayload) =>
       dispatchTelemetryStatusWithRouter(router, payload),
-    clearAlertIfResolved,
-    resetDemoStatus,
+    clearAlertIfResolved: (
+      remainingAlert: AlertDispatchPayload | null = null,
+      activeEpisodeKeys?: ReadonlySet<string>,
+    ) => clearAlertIfResolvedWithRouter(router, remainingAlert, activeEpisodeKeys),
+    resetDemoStatus: () => resetDemoStatusWithRouter(router),
   }
 }
