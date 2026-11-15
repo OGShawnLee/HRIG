@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue"
-import { useRoute } from "vue-router"
+import { useRoute, useRouter } from "vue-router"
 import { AlertCircle, AlertTriangle, HelpCircle, Home, Search } from "lucide-vue-next"
 import { ReadingStatus, type AlertEvent } from "@bindings/hrig/shared/model/models.js"
 import {
@@ -24,6 +24,7 @@ const SVG_HEIGHT = 64
 const PAD_Y = 8
 
 const route = useRoute()
+const router = useRouter()
 const {
   astronauts,
   activeAstronauts,
@@ -46,6 +47,13 @@ const {
 } = useTelemetryNavigation()
 
 const metricFilter = ref("")
+
+function openMedicalManual(manualQuery: string) {
+  void router.push({
+    name: "search",
+    query: { tab: "procedures", q: manualQuery },
+  })
+}
 
 watch(
   () => route.query.astronaut,
@@ -721,6 +729,7 @@ interface VitalRow {
   id: string
   title: string
   subtitle?: string
+  manualQuery: string
   value: string
   unit: string
   subline: string
@@ -790,6 +799,7 @@ const vitalRows = computed<VitalRow[]>(() => {
     {
       id: "cardiac",
       title: "CARDIAC RHYTHM",
+      manualQuery: "heart_rate",
       value: hr.value,
       unit: hr.unit,
       subline: hrvSub,
@@ -802,6 +812,7 @@ const vitalRows = computed<VitalRow[]>(() => {
     {
       id: "oxygenation",
       title: "OXYGENATION",
+      manualQuery: "spo2",
       value: spo2.value,
       unit: spo2.unit,
       subline: cabinO2Sub,
@@ -815,6 +826,7 @@ const vitalRows = computed<VitalRow[]>(() => {
       id: "pressure",
       title: "PRESSURE",
       subtitle: "BP",
+      manualQuery: "pressure",
       value: bpValue,
       unit: "mmHg",
       subline: cabinPressureSub,
@@ -828,6 +840,7 @@ const vitalRows = computed<VitalRow[]>(() => {
       id: "radiation",
       title: "RADIATION",
       subtitle: "SENSOR",
+      manualQuery: "radiation",
       value: radRate.value,
       unit: radRate.unit,
       subline: radCumSub,
@@ -841,6 +854,7 @@ const vitalRows = computed<VitalRow[]>(() => {
       id: "temperature",
       title: "TEMPERATURE",
       subtitle: "BODY",
+      manualQuery: "core_temp",
       value: coreTemp.value,
       unit: coreTemp.unit,
       subline: cabinTempSub,
@@ -965,12 +979,16 @@ const vitalRows = computed<VitalRow[]>(() => {
             </small>
           </div>
 
-          <div
-            class="flex items-end justify-center pb-2"
+          <button
+            type="button"
+            class="flex items-end justify-center pb-2 cursor-pointer transition-colors hover:bg-surface hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line"
             :class="cardSecondaryTextClass(row.status, 'text-dull')"
+            :aria-label="`Open Medical Manual procedures for ${row.title}`"
+            :title="`Open Medical Manual: ${row.title}`"
+            @click="openMedicalManual(row.manualQuery)"
           >
             <HelpCircle class="w-3.5 h-3.5" aria-hidden="true" />
-          </div>
+          </button>
         </article>
       </section>
 
