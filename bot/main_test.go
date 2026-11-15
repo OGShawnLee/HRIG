@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -278,5 +280,286 @@ func TestControlHTTPEndpointsAndStdinCommands(t *testing.T) {
 	}
 	if cur := gen.status(); cur.Mode != modeNormal {
 		t.Fatalf("expected normal after stdin normal, got %+v", cur)
+	}
+}
+
+func TestSendBatchSkipsDisconnectedDeviceAndResumesOnReconnect(t *testing.T) {
+	gen := newGenerator(17)
+
+	var mu sync.Mutex
+	var receivedDevices []string
+	ingestSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req model.IngestRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode ingest request: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		mu.Lock()
+		receivedDevices = append(receivedDevices, req.DeviceCode)
+		mu.Unlock()
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer ingestSrv.Close()
+
+	// Disconnect baumanometro_01
+	snap, err := gen.disconnect("baumanometro_01")
+	if err != nil {
+		t.Fatalf("disconnect baumanometro_01: %v", err)
+	}
+	if len(snap.DisconnectedDevices) != 1 || snap.DisconnectedDevices[0] != "baumanometro_01" {
+		t.Fatalf("unexpected disconnected devices: %+v", snap.DisconnectedDevices)
+	}
+
+	if err := sendBatch(context.Background(), ingestSrv.Client(), ingestSrv.URL, 1, gen); err != nil {
+		t.Fatalf("sendBatch while disconnected: %v", err)
+	}
+
+	mu.Lock()
+	firstRun := append([]string(nil), receivedDevices...)
+	receivedDevices = nil
+	mu.Unlock()
+
+	if len(firstRun) != len(sensors)-1 {
+		t.Fatalf("expected %d devices sent while baumanometro_01 disconnected, got %d (%v)", len(sensors)-1, len(firstRun), firstRun)
+	}
+	for _, dev := range firstRun {
+		if dev == "baumanometro_01" {
+			t.Fatal("baumanometro_01 should not have been sent while disconnected")
+		}
+	}
+
+	// Reconnect baumanometro_01 and verify it resumes
+	snap, err = gen.reconnect("baumanometro_01")
+	if err != nil {
+		t.Fatalf("reconnect baumanometro_01: %v", err)
+	}
+	if len(snap.DisconnectedDevices) != 0 {
+		t.Fatalf("expected 0 disconnected devices after reconnect, got %v", snap.DisconnectedDevices)
+	}
+
+	if err := sendBatch(context.Background(), ingestSrv.Client(), ingestSrv.URL, 1, gen); err != nil {
+		t.Fatalf("sendBatch after reconnect: %v", err)
+	}
+
+	mu.Lock()
+	secondRun := append([]string(nil), receivedDevices...)
+	mu.Unlock()
+
+	if len(secondRun) != len(sensors) {
+		t.Fatalf("expected all %d devices sent after reconnect, got %d (%v)", len(sensors), len(secondRun), secondRun)
+	}
+	foundBaumanometro := false
+	for _, dev := range secondRun {
+		if dev == "baumanometro_01" {
+			foundBaumanometro = true
+			break
+		}
+	}
+	if !foundBaumanometro {
+		t.Fatalf("expected baumanometro_01 in second batch (%v)", secondRun)
+	}
+}
+
+func TestDeviceDisconnectAllReconnectAllAndHTTPControls(t *testing.T) {
+	gen := newGenerator(23)
+	var dispatched atomic.Int32
+	srv := httptest.NewServer(newControlHandler(gen, func() {
+		dispatched.Add(1)
+	}))
+	defer srv.Close()
+
+	// 1. GET / serves interactive dark-HUD HTML UI
+	resp, err := http.Get(srv.URL + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	htmlBytes, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("read GET / body: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET / status = %d, want 200", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Fatalf("GET / Content-Type = %q, want text/html", ct)
+	}
+	html := string(htmlBytes)
+	for _, needle := range []string{"HRIG Telemetry Bot Control", "/override", "/cancel", "/disconnect", "/reconnect"} {
+		if !strings.Contains(html, needle) {
+			t.Fatalf("GET / HTML missing %q", needle)
+		}
+	}
+
+	// 2. GET /not-found returns 404
+	resp, err = http.Get(srv.URL + "/not-found")
+	if err != nil {
+		t.Fatalf("GET /not-found: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("GET /not-found status = %d, want 404", resp.StatusCode)
+	}
+
+	// 3. GET /status exposes override top-level fields + disconnected_devices + devices metadata
+	resp, err = http.Get(srv.URL + "/status")
+	if err != nil {
+		t.Fatalf("GET /status: %v", err)
+	}
+	var snap controlStatus
+	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
+		t.Fatalf("decode GET /status: %v", err)
+	}
+	resp.Body.Close()
+	if snap.Mode != modeNormal {
+		t.Fatalf("initial mode = %q, want normal", snap.Mode)
+	}
+	if snap.DisconnectedDevices == nil || len(snap.DisconnectedDevices) != 0 {
+		t.Fatalf("expected non-nil empty disconnected_devices, got %#v", snap.DisconnectedDevices)
+	}
+	if len(snap.Devices) != len(sensors) {
+		t.Fatalf("expected %d devices in status, got %d", len(sensors), len(snap.Devices))
+	}
+
+	// 4. Invalid device / invalid JSON returns 400 Bad Request
+	for _, badBody := range []string{
+		`{"device":"unknown_sensor"}`,
+		`{"device":""}`,
+		`{not-valid-json`,
+	} {
+		resp, err = http.Post(srv.URL+"/disconnect", "application/json", bytes.NewBufferString(badBody))
+		if err != nil {
+			t.Fatalf("POST /disconnect (%s): %v", badBody, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("POST /disconnect (%s) status = %d, want 400", badBody, resp.StatusCode)
+		}
+	}
+	resp, err = http.Post(srv.URL+"/reconnect", "application/json", bytes.NewBufferString(`{"device":"unknown_sensor"}`))
+	if err != nil {
+		t.Fatalf("POST /reconnect invalid device: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST /reconnect invalid device status = %d, want 400", resp.StatusCode)
+	}
+
+	// 5. POST /disconnect single device
+	resp, err = http.Post(srv.URL+"/disconnect", "application/json", bytes.NewBufferString(`{"device":"cabin_sensor_01"}`))
+	if err != nil {
+		t.Fatalf("POST /disconnect cabin_sensor_01: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST /disconnect status = %d, want 200", resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
+		t.Fatalf("decode POST /disconnect: %v", err)
+	}
+	resp.Body.Close()
+	if len(snap.DisconnectedDevices) != 1 || snap.DisconnectedDevices[0] != "cabin_sensor_01" {
+		t.Fatalf("unexpected disconnected_devices: %v", snap.DisconnectedDevices)
+	}
+
+	// 6. POST /disconnect all
+	resp, err = http.Post(srv.URL+"/disconnect", "application/json", bytes.NewBufferString(`{"device":"all"}`))
+	if err != nil {
+		t.Fatalf("POST /disconnect all: %v", err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
+		t.Fatalf("decode POST /disconnect all: %v", err)
+	}
+	resp.Body.Close()
+	if len(snap.DisconnectedDevices) != len(sensors) {
+		t.Fatalf("expected all %d devices disconnected, got %d (%v)", len(sensors), len(snap.DisconnectedDevices), snap.DisconnectedDevices)
+	}
+
+	// 7. POST /reconnect single device while others remain disconnected
+	resp, err = http.Post(srv.URL+"/reconnect", "application/json", bytes.NewBufferString(`{"device":"cabin_sensor_01"}`))
+	if err != nil {
+		t.Fatalf("POST /reconnect cabin_sensor_01: %v", err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
+		t.Fatalf("decode POST /reconnect cabin_sensor_01: %v", err)
+	}
+	resp.Body.Close()
+	if len(snap.DisconnectedDevices) != len(sensors)-1 {
+		t.Fatalf("expected %d disconnected devices, got %d", len(sensors)-1, len(snap.DisconnectedDevices))
+	}
+	if dispatched.Load() != 1 {
+		t.Fatalf("expected onDispatch count = 1 after reconnect, got %d", dispatched.Load())
+	}
+
+	// 8. POST /reconnect empty target reconnects all remaining devices and dispatches
+	resp, err = http.Post(srv.URL+"/reconnect", "application/json", bytes.NewBufferString(`{"device":""}`))
+	if err != nil {
+		t.Fatalf("POST /reconnect empty: %v", err)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
+		t.Fatalf("decode POST /reconnect empty: %v", err)
+	}
+	resp.Body.Close()
+	if len(snap.DisconnectedDevices) != 0 {
+		t.Fatalf("expected 0 disconnected devices after reconnect all, got %v", snap.DisconnectedDevices)
+	}
+	if dispatched.Load() != 2 {
+		t.Fatalf("expected onDispatch count = 2, got %d", dispatched.Load())
+	}
+
+	// 9. Wildcard "*" disconnect + reconnect via generator methods
+	if _, err := gen.disconnect("*"); err != nil {
+		t.Fatalf("disconnect *: %v", err)
+	}
+	if got := gen.disconnectedDevices(); len(got) != len(sensors) {
+		t.Fatalf("expected %d disconnected after *, got %d", len(sensors), len(got))
+	}
+	if _, err := gen.reconnect("*"); err != nil {
+		t.Fatalf("reconnect *: %v", err)
+	}
+	if got := gen.disconnectedDevices(); len(got) != 0 {
+		t.Fatalf("expected 0 disconnected after reconnect *, got %v", got)
+	}
+
+	// 10. Stdin disconnect / offline and reconnect / online commands
+	if msg, ok := handleCommandLine("disconnect dosimeter_01", gen, nil); !ok || !strings.Contains(msg, "dosimeter_01") {
+		t.Fatalf("unexpected stdin disconnect response: ok=%v msg=%q", ok, msg)
+	}
+	if !gen.isDisconnected("dosimeter_01") {
+		t.Fatal("expected dosimeter_01 to be disconnected via stdin")
+	}
+
+	if msg, ok := handleCommandLine("offline all", gen, nil); !ok || !strings.Contains(msg, "biomonitor_01") {
+		t.Fatalf("unexpected stdin offline all response: ok=%v msg=%q", ok, msg)
+	}
+	if got := gen.disconnectedDevices(); len(got) != len(sensors) {
+		t.Fatalf("expected all devices disconnected via offline all, got %v", got)
+	}
+
+	if msg, ok := handleCommandLine("online dosimeter_01", gen, func() { dispatched.Add(1) }); !ok || strings.Contains(msg, "inválido") {
+		t.Fatalf("unexpected stdin online response: ok=%v msg=%q", ok, msg)
+	}
+	if gen.isDisconnected("dosimeter_01") {
+		t.Fatal("expected dosimeter_01 to be reconnected via online")
+	}
+	if dispatched.Load() != 3 {
+		t.Fatalf("expected onDispatch count = 3 after stdin online, got %d", dispatched.Load())
+	}
+
+	if _, ok := handleCommandLine("reconnect", gen, func() { dispatched.Add(1) }); !ok {
+		t.Fatal("expected stdin reconnect without args to succeed")
+	}
+	if got := gen.disconnectedDevices(); len(got) != 0 {
+		t.Fatalf("expected all devices reconnected via stdin reconnect, got %v", got)
+	}
+	if dispatched.Load() != 4 {
+		t.Fatalf("expected onDispatch count = 4 after stdin reconnect, got %d", dispatched.Load())
+	}
+
+	if msg, ok := handleCommandLine("help", gen, nil); !ok || !strings.Contains(msg, "disconnect") || !strings.Contains(msg, "reconnect") {
+		t.Fatalf("help output should mention disconnect and reconnect, got %q", msg)
+	}
+	if msg, ok := handleCommandLine("status", gen, nil); !ok || !strings.Contains(msg, "disconnected=") {
+		t.Fatalf("status output should include disconnected=, got %q", msg)
 	}
 }
