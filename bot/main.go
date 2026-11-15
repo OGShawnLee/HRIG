@@ -1,17 +1,22 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -37,9 +42,166 @@ type sensor struct {
 	Metrics     []metric
 }
 
+const (
+	modeNormal   = "normal"
+	modeAbnormal = "abnormal"
+	modeCritical = "critical"
+
+	defaultAbnormalMetric = "bp_systolic"
+	defaultCriticalMetric = "cabin_pressure"
+)
+
+type overrideState struct {
+	Mode         string `json:"mode"`
+	MetricCode   string `json:"metric_code,omitempty"`
+	Astronaut    string `json:"astronaut,omitempty"`
+	UpdatedAtUTC string `json:"updated_at_utc,omitempty"`
+}
+
+type anomalyBand struct {
+	Abnormal float64
+	Critical float64
+}
+
+var anomalyTargets = map[string]anomalyBand{
+	"spo2":               {Abnormal: 92, Critical: 85},
+	"resp_rate":          {Abnormal: 24, Critical: 34},
+	"heart_rate":         {Abnormal: 115, Critical: 210},
+	"hrv_rmssd":          {Abnormal: 15, Critical: 8},
+	"core_temp":          {Abnormal: 38.1, Critical: 40.5},
+	"sleep_hours":        {Abnormal: 5.5, Critical: 3.0},
+	"mood":               {Abnormal: 1, Critical: 1},
+	"hydration_intake":   {Abnormal: 1200, Critical: 400},
+	"body_mass":          {Abnormal: 42, Critical: 32},
+	"bp_systolic":        {Abnormal: 84, Critical: 65},
+	"bp_diastolic":       {Abnormal: 54, Critical: 35},
+	"radiation_rate":     {Abnormal: 0.9, Critical: 2.8},
+	"radiation_dose_cum": {Abnormal: 25, Critical: 55},
+	"cabin_o2":           {Abnormal: 18.8, Critical: 16.0},
+	"cabin_ppco2":        {Abnormal: 3.8, Critical: 6.0},
+	"cabin_pressure":     {Abnormal: 94.0, Critical: 78.0},
+	"cabin_temp":         {Abnormal: 29.0, Critical: 37.0},
+	"suit_pressure":      {Abnormal: 27.0, Critical: 24.0},
+	"suit_temp":          {Abnormal: 38.0, Critical: 47.0},
+	"blood_glucose":      {Abnormal: 165, Critical: 275},
+	"rbc_count":          {Abnormal: 3.5, Critical: 2.0},
+	"wbc_count":          {Abnormal: 13.5, Critical: 32.0},
+}
+
 type generator struct {
+	mu       sync.Mutex
 	rng      *rand.Rand
 	previous map[string]float64
+	override overrideState
+}
+
+func newGenerator(seed int64) *generator {
+	return &generator{
+		rng:      rand.New(rand.NewSource(seed)),
+		previous: make(map[string]float64),
+		override: overrideState{Mode: modeNormal},
+	}
+}
+
+func (g *generator) status() overrideState {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.override
+}
+
+func (g *generator) setOverride(mode, metricCode, astronaut string) (overrideState, error) {
+	normalizedMode := strings.ToLower(strings.TrimSpace(mode))
+	if normalizedMode == "cancel" {
+		normalizedMode = modeNormal
+	}
+	if normalizedMode != modeNormal && normalizedMode != modeAbnormal && normalizedMode != modeCritical {
+		return overrideState{}, fmt.Errorf("modo inválido %q: use normal, abnormal o critical", mode)
+	}
+
+	metricCode = strings.TrimSpace(metricCode)
+	astronaut = strings.TrimSpace(astronaut)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if normalizedMode == modeNormal {
+		g.override = overrideState{
+			Mode:         modeNormal,
+			UpdatedAtUTC: now,
+		}
+		g.resetOutOfBoundsLocked()
+		return g.override, nil
+	}
+
+	if metricCode == "" {
+		if normalizedMode == modeCritical {
+			metricCode = defaultCriticalMetric
+		} else {
+			metricCode = defaultAbnormalMetric
+		}
+	}
+	if _, ok := anomalyTargets[metricCode]; !ok {
+		return overrideState{}, fmt.Errorf("métrica desconocida o no numérica %q", metricCode)
+	}
+
+	g.override = overrideState{
+		Mode:         normalizedMode,
+		MetricCode:   metricCode,
+		Astronaut:    astronaut,
+		UpdatedAtUTC: now,
+	}
+	return g.override, nil
+}
+
+func (g *generator) cancel() overrideState {
+	st, _ := g.setOverride(modeNormal, "", "")
+	return st
+}
+
+func (g *generator) resetOutOfBoundsLocked() {
+	for _, s := range sensors {
+		for _, m := range s.Metrics {
+			if m.Kind != model.ValueNumeric {
+				continue
+			}
+			prefix := s.Device + "/"
+			suffix := "/" + m.Code
+			for key, prev := range g.previous {
+				if strings.HasPrefix(key, prefix) && strings.HasSuffix(key, suffix) {
+					if prev < m.Min || prev > m.Max {
+						delete(g.previous, key)
+					}
+				}
+			}
+		}
+	}
+}
+
+func (g *generator) overrideValueLocked(s sensor, astronaut string, m metric) (float64, bool) {
+	if g.override.Mode == modeNormal || g.override.MetricCode != m.Code {
+		return 0, false
+	}
+	if s.Astronaut && g.override.Astronaut != "" && !matchesAstronaut(g.override.Astronaut, astronaut) {
+		return 0, false
+	}
+	band, ok := anomalyTargets[m.Code]
+	if !ok {
+		return 0, false
+	}
+	if g.override.Mode == modeCritical {
+		return band.Critical, true
+	}
+	return band.Abnormal, true
+}
+
+func matchesAstronaut(target, candidate string) bool {
+	t := strings.ToLower(strings.TrimSpace(target))
+	if t == "" || t == "*" || t == "all" {
+		return true
+	}
+	c := strings.ToLower(strings.TrimSpace(candidate))
+	return c == t || strings.Contains(c, t)
 }
 
 var crew = []string{"Ana Torres", "Liam Okafor", "Sofia Petrov"}
@@ -50,7 +212,7 @@ var sensors = []sensor{
 		{Code: "resp_rate", Unit: "/min", Kind: model.ValueNumeric, Min: 12, Max: 19},
 		{Code: "heart_rate", Unit: "/min", Kind: model.ValueNumeric, Min: 55, Max: 95},
 		{Code: "hrv_rmssd", Unit: "ms", Kind: model.ValueNumeric, Min: 25, Max: 75},
-		{Code: "core_temp", Unit: "Cel", Kind: model.ValueNumeric, Min: 36.4, Max: 37.2},
+		{Code: "core_temp", Unit: "Cel", Kind: model.ValueNumeric, Min: 36.55, Max: 37.20},
 		{Code: "sleep_hours", Unit: "h", Kind: model.ValueNumeric, Min: 7, Max: 9},
 		{Code: "mood", Unit: "{score}", Kind: model.ValueScale, Scale: 4},
 		{Code: "hydration_intake", Unit: "mL", Kind: model.ValueNumeric, Min: 1800, Max: 3000},
@@ -71,13 +233,13 @@ var sensors = []sensor{
 		{Code: "cabin_temp", Unit: "Cel", Kind: model.ValueNumeric, Min: 20, Max: 24},
 	}},
 	{Device: "suit_sensor_01", Environment: model.EnvEVA, Metrics: []metric{
-		{Code: "suit_pressure", Unit: "kPa", Kind: model.ValueNumeric, Min: 28, Max: 30},
+		{Code: "suit_pressure", Unit: "kPa", Kind: model.ValueNumeric, Min: 28.1, Max: 29.9},
 		{Code: "suit_temp", Unit: "Cel", Kind: model.ValueNumeric, Min: 20, Max: 32},
 	}},
 	{Device: "lab_assay_01", Environment: model.EnvIVA, Astronaut: true, Metrics: []metric{
 		{Code: "blood_glucose", Unit: "mg/dL", Kind: model.ValueNumeric, Min: 80, Max: 120},
 		{Code: "rbc_count", Unit: "10*6/uL", Kind: model.ValueNumeric, Min: 4.2, Max: 5.8},
-		{Code: "wbc_count", Unit: "10*3/uL", Kind: model.ValueNumeric, Min: 4.5, Max: 10},
+		{Code: "wbc_count", Unit: "10*3/uL", Kind: model.ValueNumeric, Min: 4.6, Max: 10.0},
 	}},
 	{Device: "ultrasound_01", Environment: model.EnvIVA, Astronaut: true, Metrics: []metric{
 		{Code: "ultrasound", Kind: model.ValueImage},
@@ -94,12 +256,49 @@ func main() {
 	if err != nil || crewCount < 1 || crewCount > len(crew) {
 		log.Fatalf("SENSOR_CREW_COUNT debe estar entre 1 y %d", len(crew))
 	}
+	controlAddr := env("BOT_CONTROL_ADDR", "127.0.0.1:8090")
 	log.Printf("simulando %d sensores lógicos para %d astronautas; POST %s cada %s", len(sensors), crewCount, endpoint, interval)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	client := &http.Client{Timeout: 10 * time.Second}
-	gen := &generator{rng: rand.New(rand.NewSource(time.Now().UnixNano())), previous: make(map[string]float64)}
+	gen := newGenerator(time.Now().UnixNano())
+
+	triggerCh := make(chan struct{}, 1)
+	triggerBatch := func() {
+		select {
+		case triggerCh <- struct{}{}:
+		default:
+		}
+	}
+
+	if !strings.EqualFold(controlAddr, "off") {
+		srv := &http.Server{
+			Addr:              controlAddr,
+			Handler:           newControlHandler(gen, triggerBatch),
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		ln, err := net.Listen("tcp", controlAddr)
+		if err != nil {
+			log.Printf("advertencia: no se pudo iniciar control HTTP en %s: %v", controlAddr, err)
+		} else {
+			log.Printf("control HTTP activo en http://%s (GET /status, POST /override, POST /cancel)", ln.Addr().String())
+			go func() {
+				if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					log.Printf("error en servidor de control: %v", err)
+				}
+			}()
+			go func() {
+				<-ctx.Done()
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				_ = srv.Shutdown(shutdownCtx)
+			}()
+		}
+	}
+
+	go runStdinLoop(ctx, os.Stdin, gen, triggerBatch)
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -111,7 +310,118 @@ func main() {
 			log.Print("simulador detenido")
 			return
 		case <-ticker.C:
+		case <-triggerCh:
 		}
+	}
+}
+
+type overrideRequest struct {
+	Mode       string `json:"mode"`
+	MetricCode string `json:"metric_code"`
+	Astronaut  string `json:"astronaut"`
+}
+
+func newControlHandler(gen *generator, onDispatch func()) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		writeJSON(w, http.StatusOK, gen.status())
+	})
+	mux.HandleFunc("/override", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req overrideRequest
+		if err := json.NewDecoder(io.LimitReader(r.Body, 16*1024)).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "JSON inválido: " + err.Error()})
+			return
+		}
+		st, err := gen.setOverride(req.Mode, req.MetricCode, req.Astronaut)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		log.Printf("override HTTP actualizado: mode=%s metric=%s astronaut=%q", st.Mode, st.MetricCode, st.Astronaut)
+		if onDispatch != nil {
+			onDispatch()
+		}
+		writeJSON(w, http.StatusOK, st)
+	})
+	mux.HandleFunc("/cancel", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		st := gen.cancel()
+		log.Print("override cancelado vía HTTP; restaurando telemetría nominal")
+		if onDispatch != nil {
+			onDispatch()
+		}
+		writeJSON(w, http.StatusOK, st)
+	})
+	return mux
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func runStdinLoop(ctx context.Context, r io.Reader, gen *generator, onDispatch func()) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		if msg, ok := handleCommandLine(scanner.Text(), gen, onDispatch); ok && msg != "" {
+			log.Print(msg)
+		}
+	}
+}
+
+func handleCommandLine(line string, gen *generator, onDispatch func()) (string, bool) {
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return "", false
+	}
+	cmd := strings.ToLower(fields[0])
+	switch cmd {
+	case modeAbnormal, modeCritical:
+		var metricCode, astronaut string
+		if len(fields) >= 2 {
+			metricCode = fields[1]
+		}
+		if len(fields) >= 3 {
+			astronaut = strings.Join(fields[2:], " ")
+		}
+		st, err := gen.setOverride(cmd, metricCode, astronaut)
+		if err != nil {
+			return fmt.Sprintf("comando inválido: %v", err), true
+		}
+		if onDispatch != nil {
+			onDispatch()
+		}
+		return fmt.Sprintf("override activo: mode=%s metric=%s astronaut=%q", st.Mode, st.MetricCode, st.Astronaut), true
+	case "cancel", modeNormal:
+		st := gen.cancel()
+		if onDispatch != nil {
+			onDispatch()
+		}
+		return fmt.Sprintf("override cancelado: mode=%s", st.Mode), true
+	case "status":
+		st := gen.status()
+		return fmt.Sprintf("estado actual: mode=%s metric=%s astronaut=%q updated=%s", st.Mode, st.MetricCode, st.Astronaut, st.UpdatedAtUTC), true
+	case "help", "?":
+		return "comandos: abnormal [metric] [astronaut] | critical [metric] [astronaut] | cancel | normal | status | help", true
+	default:
+		return fmt.Sprintf("comando desconocido %q (use 'help')", cmd), true
 	}
 }
 
@@ -162,6 +472,9 @@ func sendBatch(ctx context.Context, client *http.Client, endpoint string, crewCo
 }
 
 func (g *generator) makeReadings(s sensor, astronaut string) []model.IngestReading {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	out := make([]model.IngestReading, 0, len(s.Metrics))
 	for _, m := range s.Metrics {
 		r := model.IngestReading{MetricCode: m.Code}
@@ -171,6 +484,11 @@ func (g *generator) makeReadings(s sensor, astronaut string) []model.IngestReadi
 		}
 		switch m.Kind {
 		case model.ValueNumeric:
+			if overrideVal, ok := g.overrideValueLocked(s, astronaut, m); ok {
+				v := overrideVal
+				r.ValueNumeric = &v
+				break
+			}
 			key := s.Device + "/" + astronaut + "/" + m.Code
 			span := m.Max - m.Min
 			v, exists := g.previous[key]
@@ -192,16 +510,22 @@ func (g *generator) makeReadings(s sensor, astronaut string) []model.IngestReadi
 					v = g.previous[key] - (v - g.previous[key])
 				}
 			}
-			v = float64(int64(v*10000+0.5)) / 10000
+			v = clampFloat(float64(int64(v*10000+0.5))/10000, m.Min, m.Max)
 			if v == g.previous[key] {
 				v += 0.0001
 				if v > m.Max {
 					v -= 0.0002
 				}
+				v = clampFloat(v, m.Min, m.Max)
 			}
 			g.previous[key] = v
 			r.ValueNumeric = &v
 		case model.ValueScale:
+			if overrideVal, ok := g.overrideValueLocked(s, astronaut, m); ok {
+				v := int(overrideVal)
+				r.ValueScale = &v
+				break
+			}
 			key := s.Device + "/" + astronaut + "/" + m.Code
 			v := m.Scale
 			if old, exists := g.previous[key]; exists {
@@ -222,6 +546,16 @@ func (g *generator) makeReadings(s sensor, astronaut string) []model.IngestReadi
 		out = append(out, r)
 	}
 	return out
+}
+
+func clampFloat(v, minVal, maxVal float64) float64 {
+	if v < minVal {
+		return minVal
+	}
+	if v > maxVal {
+		return maxVal
+	}
+	return v
 }
 
 func env(key, fallback string) string {

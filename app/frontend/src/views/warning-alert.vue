@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue"
-import { AlertCircle, ArrowDownRight, Home } from "lucide-vue-next"
+import { AlertCircle, ArrowDownRight, Home, X } from "lucide-vue-next"
 import { useTelemetryNavigation } from "@/composables/useTelemetryNavigation"
 
-const { lastTriggeredAlert, goToHome } = useTelemetryNavigation()
+const { lastTriggeredAlert, goToHome, closeActiveAlert } = useTelemetryNavigation()
 
 const activeAlert = computed(() =>
   lastTriggeredAlert.value?.status === "critical" ? lastTriggeredAlert.value : null,
@@ -64,7 +64,7 @@ const metadataLine = computed(() => {
     class="flex-1 w-full bg-ground text-main px-4 sm:px-8 py-6 flex flex-col items-center gap-5"
     aria-label="Warning view"
   >
-    <div class="w-full max-w-4xl flex items-center">
+    <div class="w-full max-w-4xl flex items-center justify-between gap-3">
       <button
         type="button"
         class="button-side h-10 px-3 text-xs gap-1.5"
@@ -73,6 +73,16 @@ const metadataLine = computed(() => {
       >
         <Home class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
         <span>Home</span>
+      </button>
+
+      <button
+        type="button"
+        class="button-side border-crit text-crit h-10 px-3 text-xs gap-1.5"
+        aria-label="Close alert and return to previous page"
+        @click="closeActiveAlert"
+      >
+        <X class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <span>Close Alert</span>
       </button>
     </div>
 

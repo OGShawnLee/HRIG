@@ -6,18 +6,25 @@ import {
   GetConnectionStatus,
   GetMetrics,
   GetSnapshot,
+  GetTrends,
 } from "@bindings/hrig/app/app.js"
 import { ConnectionState } from "@bindings/hrig/app/models.js"
 import {
   ReadingStatus,
+  TrendQuery,
   type AlertEvent,
   type Astronaut,
   type LatestReading,
   type Metric,
   type RealtimeEnvelope,
+  type TrendPoint,
 } from "@bindings/hrig/shared/model/models.js"
 import {
+  buildAlertEpisodeKey,
+  clearAlertIfResolved,
   dispatchTelemetryStatus,
+  lastTriggeredAlert,
+  type AlertDispatchPayload,
   type NavReadingStatus,
 } from "@/composables/useTelemetryNavigation"
 
@@ -27,6 +34,15 @@ export interface FormattedMetric {
   display: string
   status: TelemetryDisplayStatus
 }
+
+export interface TelemetrySeriesPoint {
+  value: number
+  status: TelemetryDisplayStatus
+  recordedAtUtc: string
+  met: string
+}
+
+const MAX_SERIES_POINTS = 40
 
 const STATUS_SEVERITY: Record<TelemetryDisplayStatus, number> = {
   unknown: 0,
@@ -40,6 +56,7 @@ const STATUS_SEVERITY: Record<TelemetryDisplayStatus, number> = {
 const astronauts = ref<Astronaut[]>([])
 const metricsByCode = ref<Record<string, Metric>>({})
 const readingsByKey = ref<Record<string, LatestReading>>({})
+const seriesByKey = ref<Record<string, TelemetrySeriesPoint[]>>({})
 const alerts = ref<AlertEvent[]>([])
 const connectionState = ref<ConnectionState>(new ConnectionState())
 const loading = ref<boolean>(false)
@@ -53,6 +70,101 @@ let activeRefreshPromise: Promise<void> | null = null
 function readingKey(astronautId: string | null | undefined, metricCode: string): string {
   const scope = astronautId && astronautId.trim() !== "" ? astronautId : "env"
   return `${scope}:${metricCode}`
+}
+
+function extractNumericValue(item: {
+  valueNumeric?: number | null
+  valueScale?: number | null
+}): number | null {
+  if (item.valueNumeric !== null && item.valueNumeric !== undefined && Number.isFinite(item.valueNumeric)) {
+    return item.valueNumeric
+  }
+  if (item.valueScale !== null && item.valueScale !== undefined && Number.isFinite(item.valueScale)) {
+    return item.valueScale
+  }
+  return null
+}
+
+function comparePointsByTime(a: TelemetrySeriesPoint, b: TelemetrySeriesPoint): number {
+  const ta = Date.parse(a.recordedAtUtc)
+  const tb = Date.parse(b.recordedAtUtc)
+  if (!Number.isNaN(ta) && !Number.isNaN(tb)) {
+    return ta - tb
+  }
+  return a.recordedAtUtc.localeCompare(b.recordedAtUtc)
+}
+
+function mergeSeriesPoints(
+  existing: TelemetrySeriesPoint[] | undefined,
+  incoming: TelemetrySeriesPoint[],
+  limit = MAX_SERIES_POINTS,
+): TelemetrySeriesPoint[] {
+  const cap = Math.max(1, Math.min(limit, MAX_SERIES_POINTS))
+  const byTimestamp = new Map<string, TelemetrySeriesPoint>()
+  for (const pt of existing ?? []) {
+    if (pt.recordedAtUtc) {
+      byTimestamp.set(pt.recordedAtUtc, pt)
+    }
+  }
+  for (const pt of incoming) {
+    if (pt.recordedAtUtc) {
+      byTimestamp.set(pt.recordedAtUtc, pt)
+    }
+  }
+  const merged = Array.from(byTimestamp.values()).sort(comparePointsByTime)
+  return merged.length > cap ? merged.slice(-cap) : merged
+}
+
+function toSeriesPointFromReading(reading: LatestReading): TelemetrySeriesPoint | null {
+  if (!reading.metricCode || reading.isStale) {
+    return null
+  }
+  const value = extractNumericValue(reading)
+  if (value === null) {
+    return null
+  }
+  return {
+    value,
+    status: resolveReadingStatus(reading),
+    recordedAtUtc: reading.recordedAtUtc,
+    met: reading.met ?? "",
+  }
+}
+
+function toSeriesPointFromTrend(point: TrendPoint): TelemetrySeriesPoint | null {
+  const value = extractNumericValue(point)
+  if (value === null) {
+    return null
+  }
+  const status: TelemetryDisplayStatus =
+    point.status === ReadingStatus.StatusNormal ||
+    point.status === ReadingStatus.StatusAbnormal ||
+    point.status === ReadingStatus.StatusCritical ||
+    point.status === ReadingStatus.StatusStale
+      ? point.status
+      : "unknown"
+  return {
+    value,
+    status,
+    recordedAtUtc: point.recordedAtUtc,
+    met: point.met ?? "",
+  }
+}
+
+function appendReadingToSeriesMap(
+  target: Record<string, TelemetrySeriesPoint[]>,
+  reading: LatestReading | null | undefined,
+): boolean {
+  if (!reading) {
+    return false
+  }
+  const pt = toSeriesPointFromReading(reading)
+  if (!pt) {
+    return false
+  }
+  const key = readingKey(reading.astronautId, reading.metricCode)
+  target[key] = mergeSeriesPoints(target[key], [pt])
+  return true
 }
 
 function upsertReading(reading: LatestReading | null | undefined): void {
@@ -72,15 +184,24 @@ function applySnapshot(
   timestamp?: string,
 ): void {
   const nextMap: Record<string, LatestReading> = {}
+  const nextSeries = { ...seriesByKey.value }
+  let seriesChanged = false
+
   if (Array.isArray(readings)) {
     for (const reading of readings) {
       if (!reading || !reading.metricCode) {
         continue
       }
       nextMap[readingKey(reading.astronautId, reading.metricCode)] = reading
+      if (appendReadingToSeriesMap(nextSeries, reading)) {
+        seriesChanged = true
+      }
     }
   }
   readingsByKey.value = nextMap
+  if (seriesChanged) {
+    seriesByKey.value = nextSeries
+  }
   if (Array.isArray(nextAlerts)) {
     alerts.value = nextAlerts
   }
@@ -123,6 +244,114 @@ function resolveAstronautName(astronautId: string | null | undefined): string | 
   return astronauts.value.find((item) => item.id === astronautId)?.fullName
 }
 
+function readingToAlertPayload(
+  reading: LatestReading,
+  status: "abnormal" | "critical",
+): AlertDispatchPayload {
+  const formatted = formatMetricValue(reading, metricsByCode.value[reading.metricCode])
+  return {
+    status,
+    astronautId: reading.astronautId ?? undefined,
+    astronautName: resolveAstronautName(reading.astronautId),
+    metricCode: reading.metricCode,
+    source: reading.source,
+    deviceCode: reading.deviceCode,
+    valueDisplay: formatted.display,
+    met: reading.met,
+    timestampUtc: reading.recordedAtUtc,
+  }
+}
+
+function alertToDispatchPayload(
+  alert: AlertEvent,
+  status: "abnormal" | "critical",
+): AlertDispatchPayload {
+  return {
+    status,
+    astronautId: alert.astronautId ?? undefined,
+    astronautName: resolveAstronautName(alert.astronautId),
+    metricCode: alert.metricCode,
+    source: alert.source,
+    deviceCode: alert.deviceCode,
+    message: alert.message,
+    met: alert.met,
+    timestampUtc: alert.triggeredAtUtc,
+  }
+}
+
+function isAlertSupersededByNormalReading(alert: AlertEvent): boolean {
+  const live = readingsByKey.value[readingKey(alert.astronautId, alert.metricCode)]
+  if (!live || resolveReadingStatus(live) !== ReadingStatus.StatusNormal) {
+    return false
+  }
+  if (!live.recordedAtUtc || !alert.triggeredAtUtc) {
+    return true
+  }
+  const liveMs = Date.parse(live.recordedAtUtc)
+  const alertMs = Date.parse(alert.triggeredAtUtc)
+  if (Number.isNaN(liveMs) || Number.isNaN(alertMs)) {
+    return true
+  }
+  return liveMs >= alertMs
+}
+
+function reconcileActiveAlerts(): void {
+  const activePayloads: AlertDispatchPayload[] = []
+  const activeEpisodeKeys = new Set<string>()
+
+  for (const reading of Object.values(readingsByKey.value)) {
+    const navStatus = toNavStatus(resolveReadingStatus(reading))
+    if (navStatus === "abnormal" || navStatus === "critical") {
+      const payload = readingToAlertPayload(reading, navStatus)
+      activePayloads.push(payload)
+      activeEpisodeKeys.add(buildAlertEpisodeKey(payload))
+    }
+  }
+
+  for (const alert of alerts.value) {
+    if (alert.acknowledged) {
+      continue
+    }
+    const navStatus = toNavStatus(alert.status)
+    if (navStatus !== "abnormal" && navStatus !== "critical") {
+      continue
+    }
+    if (isAlertSupersededByNormalReading(alert)) {
+      continue
+    }
+    const payload = alertToDispatchPayload(alert, navStatus)
+    activePayloads.push(payload)
+    activeEpisodeKeys.add(buildAlertEpisodeKey(payload))
+  }
+
+  let bestActive: AlertDispatchPayload | null = null
+  for (const candidate of activePayloads) {
+    if (!bestActive) {
+      bestActive = candidate
+      continue
+    }
+    const candRank = candidate.status === "critical" ? 2 : 1
+    const bestRank = bestActive.status === "critical" ? 2 : 1
+    if (candRank > bestRank) {
+      bestActive = candidate
+      continue
+    }
+    if (candRank === bestRank) {
+      const candTime = candidate.timestampUtc ? Date.parse(candidate.timestampUtc) : 0
+      const bestTime = bestActive.timestampUtc ? Date.parse(bestActive.timestampUtc) : 0
+      if (candTime >= bestTime) {
+        bestActive = candidate
+      }
+    }
+  }
+
+  if (bestActive === null && lastTriggeredAlert.value?.source === "mockup-demo") {
+    return
+  }
+
+  clearAlertIfResolved(bestActive, activeEpisodeKeys)
+}
+
 function handleEnvelope(envelope: RealtimeEnvelope | null | undefined): void {
   if (!envelope) {
     return
@@ -130,62 +359,62 @@ function handleEnvelope(envelope: RealtimeEnvelope | null | undefined): void {
   switch (envelope.type) {
     case "snapshot":
       applySnapshot(envelope.readings, envelope.alerts, envelope.sentAtUtc)
+      reconcileActiveAlerts()
       error.value = null
       break
     case "reading":
-    case "stale":
+    case "stale": {
+      const incomingReadings: LatestReading[] = []
       if (envelope.reading) {
-        upsertReading(envelope.reading)
+        incomingReadings.push(envelope.reading)
       }
       if (Array.isArray(envelope.readings)) {
         for (const item of envelope.readings) {
-          upsertReading(item)
+          if (item) {
+            incomingReadings.push(item)
+          }
         }
       }
-      if (envelope.type === "reading" && envelope.reading) {
-        const navStatus = toNavStatus(resolveReadingStatus(envelope.reading))
-        if (navStatus === "abnormal" || navStatus === "critical") {
-          const formatted = formatMetricValue(
-            envelope.reading,
-            metricsByCode.value[envelope.reading.metricCode],
-          )
-          dispatchTelemetryStatus({
-            status: navStatus,
-            astronautId: envelope.reading.astronautId ?? undefined,
-            astronautName: resolveAstronautName(envelope.reading.astronautId),
-            metricCode: envelope.reading.metricCode,
-            source: envelope.reading.source,
-            deviceCode: envelope.reading.deviceCode,
-            valueDisplay: formatted.display,
-            met: envelope.reading.met,
-            timestampUtc: envelope.reading.recordedAtUtc,
-          })
+
+      const nextSeries = envelope.type === "reading" ? { ...seriesByKey.value } : null
+      let seriesChanged = false
+      for (const item of incomingReadings) {
+        upsertReading(item)
+        if (nextSeries && appendReadingToSeriesMap(nextSeries, item)) {
+          seriesChanged = true
         }
       }
+      if (nextSeries && seriesChanged) {
+        seriesByKey.value = nextSeries
+      }
+
+      if (envelope.type === "reading") {
+        for (const item of incomingReadings) {
+          const navStatus = toNavStatus(resolveReadingStatus(item))
+          if (navStatus === "abnormal" || navStatus === "critical") {
+            dispatchTelemetryStatus(readingToAlertPayload(item, navStatus))
+          }
+        }
+      }
+
+      reconcileActiveAlerts()
+
       lastUpdatedUtc.value =
         envelope.sentAtUtc && envelope.sentAtUtc !== ""
           ? envelope.sentAtUtc
           : new Date().toISOString()
       break
+    }
     case "alert":
     case "alert_ack":
       upsertAlert(envelope.alert)
       if (envelope.type === "alert" && envelope.alert && !envelope.alert.acknowledged) {
         const navStatus = toNavStatus(envelope.alert.status)
         if (navStatus === "abnormal" || navStatus === "critical") {
-          dispatchTelemetryStatus({
-            status: navStatus,
-            astronautId: envelope.alert.astronautId ?? undefined,
-            astronautName: resolveAstronautName(envelope.alert.astronautId),
-            metricCode: envelope.alert.metricCode,
-            source: envelope.alert.source,
-            deviceCode: envelope.alert.deviceCode,
-            message: envelope.alert.message,
-            met: envelope.alert.met,
-            timestampUtc: envelope.alert.triggeredAtUtc,
-          })
+          dispatchTelemetryStatus(alertToDispatchPayload(envelope.alert, navStatus))
         }
       }
+      reconcileActiveAlerts()
       if (envelope.sentAtUtc) {
         lastUpdatedUtc.value = envelope.sentAtUtc
       }
@@ -270,6 +499,7 @@ async function refresh(): Promise<void> {
           snapshotResult.value.alerts,
           snapshotResult.value.generatedAtUtc,
         )
+        reconcileActiveAlerts()
       } else if (snapshotResult.status === "rejected") {
         errors.push(
           snapshotResult.reason instanceof Error
@@ -320,6 +550,47 @@ export function getCrewReading(astronautId: string, metricCode: string): LatestR
 
 export function getEnvReading(metricCode: string): LatestReading | undefined {
   return readingsByKey.value[readingKey(null, metricCode)]
+}
+
+export function getCrewSeries(astronautId: string, metricCode: string): TelemetrySeriesPoint[] {
+  return seriesByKey.value[readingKey(astronautId, metricCode)] ?? []
+}
+
+export async function loadMetricTrends(
+  astronautId: string,
+  metricCode: string,
+  limit = MAX_SERIES_POINTS,
+): Promise<TelemetrySeriesPoint[]> {
+  const cleanMetric = metricCode.trim()
+  if (!cleanMetric) {
+    return []
+  }
+  const cleanAstro = astronautId.trim()
+  const key = readingKey(cleanAstro || null, cleanMetric)
+  try {
+    const points = await GetTrends(
+      new TrendQuery({
+        astronautId: cleanAstro || undefined,
+        metricCode: cleanMetric,
+        limit,
+      }),
+    )
+    const parsed: TelemetrySeriesPoint[] = []
+    for (const pt of points ?? []) {
+      const converted = toSeriesPointFromTrend(pt)
+      if (converted) {
+        parsed.push(converted)
+      }
+    }
+    const merged = mergeSeriesPoints(seriesByKey.value[key], parsed, limit)
+    seriesByKey.value = {
+      ...seriesByKey.value,
+      [key]: merged,
+    }
+    return merged
+  } catch {
+    return seriesByKey.value[key] ?? []
+  }
 }
 
 export function formatMetricValue(
@@ -418,14 +689,17 @@ export function useTelemetry() {
     activeAstronauts,
     metricsByCode,
     readingsByKey,
+    seriesByKey,
     alerts,
     connectionState,
     loading,
     error,
     lastUpdatedUtc,
     refresh,
+    loadMetricTrends,
     getCrewReading,
     getEnvReading,
+    getCrewSeries,
     resolveReadingStatus,
     formatMetricValue,
     formatBloodPressure,

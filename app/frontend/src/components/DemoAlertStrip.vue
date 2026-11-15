@@ -6,7 +6,7 @@ import {
   type NavReadingStatus,
 } from "@/composables/useTelemetryNavigation"
 
-const { lastStatus, goToHome, dispatchTelemetryStatus, resetDemoStatus } =
+const { lastStatus, goToHome, openActiveAlert, dispatchTelemetryStatus, resetDemoStatus } =
   useTelemetryNavigation()
 
 const STATUS_META: Record<
@@ -20,6 +20,14 @@ const STATUS_META: Record<
 }
 
 const currentStatusMeta = computed(() => STATUS_META[lastStatus.value])
+const isAlertNavigable = computed(
+  () => lastStatus.value === "abnormal" || lastStatus.value === "critical",
+)
+const alertButtonLabel = computed(() =>
+  lastStatus.value === "critical"
+    ? "Open critical warning alert view"
+    : "Open caution support alert view",
+)
 </script>
 
 <template>
@@ -28,7 +36,21 @@ const currentStatusMeta = computed(() => STATUS_META[lastStatus.value])
     role="region"
     aria-label="Navigation and alert simulator"
   >
+    <button
+      v-if="isAlertNavigable"
+      type="button"
+      class="hud-pill px-3 py-1.5 inline-flex items-center gap-1.5 border-lineDim font-semibold tracking-wider cursor-pointer hover:bg-surface transition-colors"
+      :class="currentStatusMeta.toneClass"
+      :aria-label="alertButtonLabel"
+      :title="alertButtonLabel"
+      aria-live="polite"
+      @click="openActiveAlert()"
+    >
+      <component :is="currentStatusMeta.icon" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+      <span>{{ currentStatusMeta.label }}</span>
+    </button>
     <div
+      v-else
       class="hud-pill px-3 py-1.5 inline-flex items-center gap-1.5 border-lineDim font-semibold tracking-wider"
       :class="currentStatusMeta.toneClass"
       aria-live="polite"
