@@ -13,7 +13,7 @@ const emit = defineEmits<{
 <template>
   <button
     type="button"
-    class="hud-card w-44 h-44 p-5 flex flex-col items-center justify-center gap-3 text-main transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line cursor-pointer"
+    class="hud-card w-full h-full min-h-36 p-5 flex flex-col items-center justify-center gap-3 text-main transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line cursor-pointer"
     :class="active ? 'bg-surface' : ''"
     :aria-pressed="Boolean(active)"
     @click="emit('click')"
