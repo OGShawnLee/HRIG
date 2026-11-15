@@ -1,0 +1,54 @@
+version: '3'
+
+vars:
+  APP_NAME: "hrig"
+  BIN_DIR: "bin"
+  PACKAGE_MANAGER: '{{.PACKAGE_MANAGER | default "bun"}}'
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  GOOS: '{{.GOOS | default OS}}'
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+
+tasks:
+  build:
+    summary: Build the desktop application
+    cmds:
+      - task: "{{.GOOS}}:build"
+
+  package:
+    summary: Package the production release
+    cmds:
+      - task: "{{.GOOS}}:package"
+
+  run:
+    summary: Run the compiled binary
+    cmds:
+      - task: "{{.GOOS}}:run"
+
+  start:
+    summary: Build and launch the application
+    cmds:
+      - task: build
+      - task: run
+
+  dev:
+    summary: Live development mode (Vite + Wails hot-reload)
+    cmds:
+      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+
+  bindings:
+    summary: Regenerate TypeScript bindings from Go
+    cmds:
+      - wails3 generate bindings -clean=true -ts
+
+  check:
+    summary: Full client verification (Bindings + Type-check + Vite + Go)
+    cmds:
+      - task: bindings
+      - bun run --cwd frontend type-check
+      - bun run --cwd frontend build
+      - go build .

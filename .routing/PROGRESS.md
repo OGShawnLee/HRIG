@@ -20,9 +20,10 @@
 - [x] Outlined general UI flow and persistent **Command Palette / Universal Search** (`Ctrl+K` / Dynamic Island) concept
 - [x] Adapted workflow skills (`router`, `ticket`, `venture-killer`) in [`.claude/skills/`](../.claude/skills/)
 - [x] Generated cold scope & feasibility audit in [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)
+- [x] Completed [`.tickets/001-scaffold-wails3-app/`](../.tickets/001-scaffold-wails3-app/) — bare-bones Wails v3 + Go + Vue 3 + Vite + Bun + UnoCSS scaffold verified via `wails3 task client:check`
 
 ## Upcoming
+- [ ] Draft & execute `.tickets/002-3d-anatomical-figure/` (interactive 3D low-poly anatomical figure + left floating procedures/diagnosis modal)
 - [ ] Trim scope and refine [`DOMAIN.md`](DOMAIN.md) and [`SPECIFICATION.md`](SPECIFICATION.md) based on [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)
-- [ ] Architecture & tech stack selection
 - [ ] Health indicator input, medical records, and risk assessment logic
 - [ ] Translate [`SPECIFICATION.md`](SPECIFICATION.md) and [`DOMAIN.md`](DOMAIN.md) to English and finalize delivery docs

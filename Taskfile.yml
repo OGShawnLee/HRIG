@@ -1,0 +1,27 @@
+version: '3'
+
+tasks:
+  client:check:
+    dir: app
+    cmds:
+      - wails3 task check
+
+  client:build:
+    dir: app
+    cmds:
+      - wails3 task build
+
+  client:start:
+    dir: app
+    cmds:
+      - wails3 task start
+
+  client:dev:
+    dir: app
+    cmds:
+      - wails3 task dev
+
+  client:bindings:
+    dir: app
+    cmds:
+      - wails3 task bindings

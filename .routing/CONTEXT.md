@@ -20,6 +20,9 @@
   - [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md) — Cold scope & feasibility review (`venture-killer`) pending team review.
   - [`METRICS_PRIORIZATION.md`](../docs/METRICS_PRIORIZATION.md) — Minimal health metric tiers (Primary, Secondary, Excluded) and NASA references.
   - [`.claude/skills/`](../.claude/skills/) — Project workflow skills (`router`, `ticket`, `venture-killer`).
+  - [`.tickets/`](../.tickets/) — Implementation tickets (`task.md`, `spec.md`, `changelog.md`).
+  - [`wails3_barebones_scaffold_guide.md`](../wails3_barebones_scaffold_guide.md) — Blueprint for the bare-bones Wails v3 + Go + Vue 3 + Vite + Bun + UnoCSS desktop app.
+  - [`app/`](../app/) — Wails v3 desktop application (Go backend + Vue 3 / UnoCSS / TypeScript frontend).
 
 **HRIG** is a NASA hackathon project to build health monitoring software for astronauts on long-duration space missions (see [`INPUT.md`](INPUT.md)).
 
