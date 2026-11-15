@@ -1,5 +1,15 @@
+<script setup lang="ts">
+import { useTelemetryNavigation } from "@/composables/useTelemetryNavigation"
+
+const { goToCrewOverview } = useTelemetryNavigation()
+</script>
+
 <template>
   <main class="view3" aria-label="Warning view">
+    <div class="top-action-bar">
+      <button type="button" class="back-btn" @click="goToCrewOverview">← Crew Overview</button>
+    </div>
+
     <section class="warning-card">
       <div class="warning-copy">
         <h1><span class="warning-badge" aria-hidden="true" />WARNING</h1>
@@ -41,6 +51,33 @@
     radial-gradient(circle at 48% 61%, rgba(5, 22, 42, 0.62), transparent 39%),
     linear-gradient(115deg, #090909 0%, #000 63%, #020202 100%);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.top-action-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.back-btn {
+  border: 1px solid #8a8a8a;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.back-btn:hover {
+  background: #141920;
+}
+
+.back-btn:focus-visible {
+  outline: 2px solid #00a7ff;
+  outline-offset: 2px;
 }
 
 .warning-card,

@@ -1,3 +1,9 @@
+<script setup lang="ts">
+import { useTelemetryNavigation } from "@/composables/useTelemetryNavigation"
+
+const { openPrimaryVitals } = useTelemetryNavigation()
+</script>
+
 <template>
   <main class="main-page" aria-label="HRIG main page">
     <div class="search-box" role="search">
@@ -8,9 +14,16 @@
     <section class="crew-grid" aria-label="Crew members">
       <article class="crew-card">
         <div class="crew-heading">
-          <div class="crew-portrait portrait-sam" aria-hidden="true">
-            <span class="flag-stripe flag-blue" /><span class="flag-stripe flag-red" /><span class="flag-stripe flag-blue" />
-          </div>
+          <button
+            type="button"
+            class="crew-portrait-btn"
+            aria-label="Open Sam Sonia primary vitals"
+            @click="openPrimaryVitals('sam')"
+          >
+            <div class="crew-portrait portrait-sam" aria-hidden="true">
+              <span class="flag-stripe flag-blue" /><span class="flag-stripe flag-red" /><span class="flag-stripe flag-blue" />
+            </div>
+          </button>
           <h2>Sam<br />Sonia</h2>
         </div>
         <dl class="vitals">
@@ -25,9 +38,16 @@
 
       <article class="crew-card">
         <div class="crew-heading">
-          <div class="crew-portrait portrait-patrick" aria-hidden="true">
-            <span class="flag-stripe flag-blue" /><span class="flag-stripe flag-red" /><span class="flag-stripe flag-blue" />
-          </div>
+          <button
+            type="button"
+            class="crew-portrait-btn"
+            aria-label="Open Patrick Cuckburn primary vitals"
+            @click="openPrimaryVitals('patrick')"
+          >
+            <div class="crew-portrait portrait-patrick" aria-hidden="true">
+              <span class="flag-stripe flag-blue" /><span class="flag-stripe flag-red" /><span class="flag-stripe flag-blue" />
+            </div>
+          </button>
           <h2>Patrick<br />Cuckburn</h2>
         </div>
         <dl class="vitals">
@@ -127,6 +147,20 @@
   font-size: clamp(14px, 2vw, 16px);
   line-height: 1.12;
   font-weight: 400;
+}
+
+.crew-portrait-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.crew-portrait-btn:focus-visible {
+  outline: 2px solid #00a7ff;
+  outline-offset: 2px;
 }
 
 .crew-portrait {

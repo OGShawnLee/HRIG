@@ -1,6 +1,27 @@
+<script setup lang="ts">
+import { watch } from "vue"
+import { useRoute } from "vue-router"
+import { useTelemetryNavigation } from "@/composables/useTelemetryNavigation"
+
+const route = useRoute()
+const { selectedAstronautName, setSelectedAstronaut, goToCrewOverview } =
+  useTelemetryNavigation()
+
+watch(
+  () => route.query.astronaut,
+  (astronaut) => {
+    if (typeof astronaut === "string") {
+      setSelectedAstronaut(astronaut)
+    }
+  },
+  { immediate: true },
+)
+</script>
+
 <template>
   <main class="dashboard" aria-label="Dashboard principal">
     <header class="dashboard-header">
+      <button type="button" class="back-btn" @click="goToCrewOverview">← Crew Overview</button>
       <h1>PRIMARY VITALS</h1>
       <div class="search-box">
         <span class="search-icon" aria-hidden="true">⌕</span>
@@ -75,7 +96,7 @@
             <path d="M60 81l-15 18-8 58-17 29 8 20 13-6 7-27 11-24M100 81l15 18 8 58 17 29-8 20-13-6-7-27-11-24M51 181l8 54-4 41 12 68M109 181l-8 54 4 41-12 68M53 98h54M50 154h60M53 205h54M58 236h44" />
           </g>
         </svg>
-        <h2>Sam Sonia</h2>
+        <h2>{{ selectedAstronautName }}</h2>
         <div class="legend"><span><i class="caution" />Caution</span><span><i class="warning" />Warning</span></div>
       </aside>
     </div>
@@ -106,6 +127,28 @@
   margin: 0;
   flex: 0 0 auto;
   font-size: clamp(17px, 3vw, 20px);
+}
+
+.back-btn {
+  flex: 0 0 auto;
+  border: 1px solid #8a8a8a;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.back-btn:hover {
+  background: #141920;
+}
+
+.back-btn:focus-visible {
+  outline: 2px solid #00a7ff;
+  outline-offset: 2px;
 }
 
 .search-box {
