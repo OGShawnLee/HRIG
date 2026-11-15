@@ -16,6 +16,7 @@ import (
 	"hrig/server/internal/config"
 	serverhttp "hrig/server/internal/http"
 	"hrig/server/internal/ingestion"
+	"hrig/shared/model"
 )
 
 func setupTestDB(t *testing.T) *pgxpool.Pool {
@@ -509,4 +510,75 @@ func TestIntegration_AtomicRollbackAndErrorCodes(t *testing.T) {
 			t.Fatalf("rollback failed: before (%d, %d), after (%d, %d)", beforeM, beforeV, afterM, afterV)
 		}
 	})
+}
+
+type recordingPublisher struct {
+	batches [][]model.TelemetryFrame
+}
+
+func (p *recordingPublisher) PublishFrames(frames []model.TelemetryFrame) {
+	cp := make([]model.TelemetryFrame, len(frames))
+	copy(cp, frames)
+	p.batches = append(p.batches, cp)
+}
+
+func TestIntegration_PostCommitPublisher_PublishesOnlyOnCommit(t *testing.T) {
+	pool := setupTestDB(t)
+	svc := ingestion.NewService(pool)
+	pub := &recordingPublisher{}
+	svc.SetPublisher(pub)
+
+	router := serverhttp.NewRouter(config.Load(), svc)
+
+	ana := "Ana Torres"
+	f64 := func(v float64) *float64 { return &v }
+	sPtr := func(v string) *string { return &v }
+
+	// 1. Rolled-back request (valid first reading + unknown second metric) must publish 0 frames
+	rec := postJSON(t, router, ingestion.IngestRequest{
+		DeviceCode:    "biomonitor_01",
+		Environment:   "iva",
+		RecordedAtUTC: "2026-11-15T14:00:00Z",
+		AstronautName: &ana,
+		Readings: []ingestion.ReadingInput{
+			{MetricCode: "heart_rate", ValueNumeric: f64(70), UnitCode: sPtr("/min")},
+			{MetricCode: "nonexistent_metric", ValueNumeric: f64(1), UnitCode: sPtr("%")},
+		},
+	})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 on unknown metric, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if len(pub.batches) != 0 {
+		t.Fatalf("expected 0 published batches on rollback, got %d", len(pub.batches))
+	}
+
+	// 2. Committed 201 Created request with critical reading publishes frames strictly after commit
+	rec = postJSON(t, router, ingestion.IngestRequest{
+		DeviceCode:    "biomonitor_01",
+		Environment:   "iva",
+		RecordedAtUTC: "2026-11-15T14:00:01Z",
+		AstronautName: &ana,
+		Readings: []ingestion.ReadingInput{
+			{MetricCode: "heart_rate", ValueNumeric: f64(72), UnitCode: sPtr("/min")},
+			{MetricCode: "spo2", ValueNumeric: f64(89), UnitCode: sPtr("%")},
+		},
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if len(pub.batches) != 1 {
+		t.Fatalf("expected 1 published batch on commit, got %d", len(pub.batches))
+	}
+	if len(pub.batches[0]) != 2 {
+		t.Fatalf("expected 2 published frames, got %d", len(pub.batches[0]))
+	}
+	if pub.batches[0][0].MetricCode != "heart_rate" || pub.batches[0][0].Status != model.StatusNormal {
+		t.Fatalf("unexpected first frame: %+v", pub.batches[0][0])
+	}
+	if pub.batches[0][1].MetricCode != "spo2" || pub.batches[0][1].Status != model.StatusCritical {
+		t.Fatalf("unexpected second frame: %+v", pub.batches[0][1])
+	}
+	if pub.batches[0][0].AstronautID == nil || *pub.batches[0][0].AstronautID == "" {
+		t.Fatalf("expected AstronautID to be populated on personal frame: %+v", pub.batches[0][0])
+	}
 }

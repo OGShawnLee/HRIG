@@ -12,8 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hrig/server/internal/config"
+	"hrig/server/internal/db"
 	serverhttp "hrig/server/internal/http"
 	"hrig/server/internal/ingestion"
+	"hrig/server/internal/realtime"
 )
 
 func main() {
@@ -36,8 +38,25 @@ func main() {
 		log.Fatalf("failed to ping database: %v", err)
 	}
 
+	hub := realtime.NewHub(cfg.StaleAfter, cfg.MissionEpochUTC)
+	defer hub.Close()
+
+	hydrateCtx, hydrateCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	err = hub.HydrateFromDB(hydrateCtx, db.New(pool))
+	hydrateCancel()
+	if err != nil {
+		pool.Close()
+		log.Fatalf("failed to hydrate realtime hub: %v", err)
+	}
+
 	ingester := ingestion.NewService(pool)
-	router := serverhttp.NewRouter(cfg, ingester)
+	ingester.SetPublisher(hub)
+
+	router := serverhttp.NewRouterWithDeps(cfg, serverhttp.RouterDeps{
+		Ingester: ingester,
+		Realtime: hub,
+		DBPinger: pool,
+	})
 
 	srv := &http.Server{
 		Addr:              cfg.APIAddr,
@@ -47,6 +66,8 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	go hub.RunStaleMonitor(ctx, time.Second)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -60,11 +81,13 @@ func main() {
 	select {
 	case err := <-errCh:
 		if err != nil {
+			hub.Close()
 			pool.Close()
 			log.Fatalf("server error: %v", err)
 		}
 	case <-ctx.Done():
 		log.Println("shutting down server...")
+		hub.Close()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {

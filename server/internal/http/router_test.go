@@ -10,8 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
+
 	"hrig/server/internal/config"
 	"hrig/server/internal/ingestion"
+	"hrig/server/internal/realtime"
+	"hrig/shared/model"
 )
 
 type mockIngester struct {
@@ -235,4 +239,188 @@ func TestPostIngest_HTTPValidation(t *testing.T) {
 			})
 		}
 	})
+}
+
+type mockPinger struct {
+	err error
+}
+
+func (m mockPinger) Ping(ctx context.Context) error {
+	return m.err
+}
+
+func TestConfigStaleAfterAndMissionEpoch(t *testing.T) {
+	t.Setenv("HRIG_STALE_AFTER", "")
+	t.Setenv("HRIG_MISSION_EPOCH_UTC", "")
+	cfg := config.Load()
+	if cfg.StaleAfter != 15*time.Second {
+		t.Fatalf("expected default StaleAfter 15s, got %s", cfg.StaleAfter)
+	}
+	if cfg.MissionEpochUTC.IsZero() {
+		t.Fatal("expected default MissionEpochUTC to be non-zero")
+	}
+
+	t.Setenv("HRIG_STALE_AFTER", "30s")
+	t.Setenv("HRIG_MISSION_EPOCH_UTC", "2026-11-15T01:02:03Z")
+	cfg = config.Load()
+	if cfg.StaleAfter != 30*time.Second {
+		t.Fatalf("expected StaleAfter 30s, got %s", cfg.StaleAfter)
+	}
+	wantEpoch := time.Date(2026, 11, 15, 1, 2, 3, 0, time.UTC)
+	if !cfg.MissionEpochUTC.Equal(wantEpoch) {
+		t.Fatalf("expected MissionEpochUTC %s, got %s", wantEpoch, cfg.MissionEpochUTC)
+	}
+
+	t.Setenv("HRIG_STALE_AFTER", "-5s")
+	t.Setenv("HRIG_MISSION_EPOCH_UTC", "not-a-timestamp")
+	cfg = config.Load()
+	if cfg.StaleAfter != 15*time.Second {
+		t.Fatalf("expected invalid StaleAfter to fall back to 15s, got %s", cfg.StaleAfter)
+	}
+	if cfg.MissionEpochUTC.IsZero() {
+		t.Fatal("expected invalid MissionEpochUTC to fall back to current UTC time")
+	}
+}
+
+func TestRealtimeAndHealthEndpoints(t *testing.T) {
+	cfg := config.Load()
+
+	// Without realtime controller wired, /ws/realtime and /api/snapshot return 503 and /health reports degraded store.
+	noRT := NewRouterWithDeps(cfg, RouterDeps{})
+	{
+		rec := httptest.NewRecorder()
+		noRT.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ws/realtime", nil))
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Fatalf("expected 503 when realtime nil, got %d", rec.Code)
+		}
+
+		rec = httptest.NewRecorder()
+		noRT.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/snapshot", nil))
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Fatalf("expected 503 on snapshot when realtime nil, got %d", rec.Code)
+		}
+
+		rec = httptest.NewRecorder()
+		noRT.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 on health, got %d", rec.Code)
+		}
+		var h model.HealthStatus
+		if err := json.Unmarshal(rec.Body.Bytes(), &h); err != nil {
+			t.Fatalf("decode health: %v", err)
+		}
+		if h.Status != "ok" || h.Store != "degraded" {
+			t.Fatalf("unexpected health when no pinger: %+v", h)
+		}
+	}
+
+	hub := realtime.NewHub(15*time.Second, time.Date(2026, 11, 15, 0, 0, 0, 0, time.UTC))
+	defer hub.Close()
+
+	val := 190.0
+	unit := "/min"
+	hub.PublishFrames([]model.TelemetryFrame{
+		{
+			Source:        "wearable",
+			DeviceCode:    "biomonitor_01",
+			Environment:   model.EnvIVA,
+			MetricType:    1,
+			MetricCode:    "heart_rate",
+			UnitCode:      &unit,
+			ValueNumeric:  &val,
+			Status:        model.StatusCritical,
+			RecordedAtUTC: time.Now().UTC(),
+		},
+	})
+
+	router := NewRouterWithDeps(cfg, RouterDeps{
+		Realtime: hub,
+		DBPinger: mockPinger{err: nil},
+	})
+
+	// WebSocket handshake via httptest.Server
+	srv := httptest.NewServer(router)
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws/realtime"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial /ws/realtime: %v", err)
+	}
+	defer conn.Close()
+
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	var wsSnap model.RealtimeEnvelope
+	if err := conn.ReadJSON(&wsSnap); err != nil {
+		t.Fatalf("read initial ws snapshot: %v", err)
+	}
+	if wsSnap.Type != "snapshot" || len(wsSnap.Readings) != 1 || len(wsSnap.Alerts) != 1 {
+		t.Fatalf("unexpected ws snapshot: %+v", wsSnap)
+	}
+	alertID := wsSnap.Alerts[0].ID
+
+	// GET /health with active WS client, active alert, and healthy DB pinger
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on /health, got %d", rec.Code)
+	}
+	var health model.HealthStatus
+	if err := json.Unmarshal(rec.Body.Bytes(), &health); err != nil {
+		t.Fatalf("decode /health: %v", err)
+	}
+	if health.Status != "ok" || health.Store != "postgres" || health.ActiveAlerts != 1 || health.RealtimeClients != 1 {
+		t.Fatalf("unexpected /health payload: %+v", health)
+	}
+
+	// GET /api/snapshot
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/snapshot", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on /api/snapshot, got %d", rec.Code)
+	}
+	var snap model.Snapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatalf("decode /api/snapshot: %v", err)
+	}
+	if len(snap.Readings) != 1 || len(snap.Alerts) != 1 {
+		t.Fatalf("unexpected /api/snapshot payload: %+v", snap)
+	}
+
+	// POST /api/alerts/{id}/ack -> 404 on unknown ID
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/alerts/does-not-exist/ack", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for unknown alert id, got %d", rec.Code)
+	}
+
+	// POST /api/alerts/{id}/ack -> 400 on malformed JSON
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/alerts/"+alertID+"/ack", strings.NewReader(`{"bad":`)))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for malformed JSON, got %d", rec.Code)
+	}
+
+	// POST /api/alerts/{id}/ack -> 200 with AckAlertRequest
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/alerts/"+alertID+"/ack", strings.NewReader(`{"acknowledgedBy":"CMO-1"}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on ack, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	var acked model.AlertEvent
+	if err := json.Unmarshal(rec.Body.Bytes(), &acked); err != nil {
+		t.Fatalf("decode ack response: %v", err)
+	}
+	if !acked.Acknowledged || acked.AcknowledgedBy == nil || *acked.AcknowledgedBy != "CMO-1" {
+		t.Fatalf("unexpected ack response: %+v", acked)
+	}
+
+	// WS client should also receive alert_ack broadcast
+	var ackEnv model.RealtimeEnvelope
+	if err := conn.ReadJSON(&ackEnv); err != nil {
+		t.Fatalf("read ws alert_ack: %v", err)
+	}
+	if ackEnv.Type != "alert_ack" || ackEnv.Alert == nil || ackEnv.Alert.ID != alertID {
+		t.Fatalf("unexpected ws alert_ack envelope: %+v", ackEnv)
+	}
 }

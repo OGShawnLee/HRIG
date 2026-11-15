@@ -11,6 +11,10 @@ type IngestRequest = model.IngestRequest
 type ReadingInput = model.IngestReading
 type IngestResult = model.IngestResult
 
+type FramePublisher interface {
+	PublishFrames(frames []model.TelemetryFrame)
+}
+
 type Error struct {
 	StatusCode int
 	Message    string

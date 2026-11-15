@@ -1,8 +1,8 @@
 # Project Progress
 
 ## Current Task
-- [ ] **Design & Layer Next Backend Slices (Realtime Stream + Read Endpoints)** *(Next — completing the whiteboard flow)*
-  - Add WebSocket/SSE realtime broadcast on successful ingestion commit plus read endpoints (`GET` telemetry latest, trends, astronauts, history) aligned with [`db/queries/`](../db/queries/) and [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md).
+- [ ] **Layer Read/Check-in REST Endpoints & Merge `bot-n` Acute Control Panel** *(Next — completing backend & simulator loop)*
+  - Add catalog/trend/history/check-in REST endpoints (`GET /api/astronauts`, `GET /api/metrics`, `GET /api/trends`, `GET /api/history`, `POST /api/checkins`) aligned with [`db/queries/`](../db/queries/) and [`shared/model/telemetry.go`](../shared/model/telemetry.go), plus integrate [`bot-n/`](../bot-n/) manual abnormal/critical panel into [`bot/`](../bot/) using `hrig/shared/model` and `//go:embed`.
 - [ ] **Reconcile [`SPECIFICATION.md`](SPECIFICATION.md) & [`DOMAIN.md`](DOMAIN.md) with Reduced DB Scope & [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)** *(Pending)*
   - **Status enum (`RF01`, [`DOMAIN.md`](DOMAIN.md) vs. [`BD.md`](BD.md) `reading_status`):** DB persists 3 states (`normal`, `abnormal`, `critical`); decide whether to merge **Aviso** + **Valor Anómalo** into `Valor Anómalo` (`abnormal`) and mark **Dato Obsoleto** (`stale`, `RNF10`) explicitly as runtime-only.
   - **Operating modes (`RF15` vs. `environment_mode`):** Trim 4 habitats (`Nave / Estación Espacial / Rover / Base Lunar-Marte`) down to **`iva` / `eva`** modes.
@@ -37,6 +37,7 @@
 - [x] Completed [`.tickets/006-integrate-sqlc/`](../.tickets/006-integrate-sqlc/) — `sqlc` (`v1.28.0`) + `pgx/v5` bindings in `server/internal/db/` (`db/queries/*.sql` aligned with `001_schema.sql` and `GUIDE.md`) + `wails3 task db:sqlc`
 - [x] Completed [`.tickets/007-guide-sensor-ingestion/`](../.tickets/007-guide-sensor-ingestion/) — [`GUIDE.md`](../GUIDE.md) `POST /` transactional ingestion (`:80`, `pgxpool`, `metric_threshold` status classification) + [`bot/go.mod`](../bot/go.mod) + `bot:dev`/`db:migrate`/`db:seed` tasks verified against [`bot/main.go`](../bot/main.go) & PostgreSQL 17
 - [x] Completed [`.tickets/008-unify-shared-ingest-schema/`](../.tickets/008-unify-shared-ingest-schema/) — unified `bot/` and `server/` under [`shared/model/ingest.go`](../shared/model/ingest.go) (`IngestRequest`, `IngestReading`, `IngestResult`, `EnvironmentMode`, `ValueType`) verified in workspace and `GOWORK=off` modes + PostgreSQL 17 integration & live `:80` smoke tests
+- [x] Completed [`.tickets/009-realtime-gorilla-ws-server/`](../.tickets/009-realtime-gorilla-ws-server/) — `gorilla/websocket` `Hub` (`GET /ws/realtime`, `GET /api/snapshot`, `POST /api/alerts/{id}/ack`, `GET /health`), post-commit frame publisher, runtime-only `StatusStale` & critical in-memory `AlertEvent` broadcasting, `-race`, PostgreSQL 17 integration & live `:80` WS + `bot` smoke tests
 
 ## Upcoming
 - [ ] Add automated DB schema/trigger parity test suite covering remaining [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) assertions (`media_asset`, `v_astronaut_age`, `trg_astronaut_updated_at`, `ON DELETE RESTRICT`, timestamp cascade, `003_demo_seed` counts) and retire [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) afterward

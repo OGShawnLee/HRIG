@@ -3,12 +3,17 @@ package config
 import (
 	"os"
 	"strings"
+	"time"
 )
 
+const defaultStaleAfter = 15 * time.Second
+
 type Config struct {
-	APIAddr        string
-	AllowedOrigins []string
-	DatabaseURL    string
+	APIAddr         string
+	AllowedOrigins  []string
+	DatabaseURL     string
+	StaleAfter      time.Duration
+	MissionEpochUTC time.Time
 }
 
 func Load() Config {
@@ -38,9 +43,25 @@ func Load() Config {
 		databaseURL = strings.TrimSpace(os.Getenv("HRIG_DATABASE_URL"))
 	}
 
+	staleAfter := defaultStaleAfter
+	if rawStale := strings.TrimSpace(os.Getenv("HRIG_STALE_AFTER")); rawStale != "" {
+		if parsed, err := time.ParseDuration(rawStale); err == nil && parsed > 0 {
+			staleAfter = parsed
+		}
+	}
+
+	missionEpoch := time.Now().UTC()
+	if rawEpoch := strings.TrimSpace(os.Getenv("HRIG_MISSION_EPOCH_UTC")); rawEpoch != "" {
+		if parsed, err := time.Parse(time.RFC3339Nano, rawEpoch); err == nil {
+			missionEpoch = parsed.UTC()
+		}
+	}
+
 	return Config{
-		APIAddr:        addr,
-		AllowedOrigins: origins,
-		DatabaseURL:    databaseURL,
+		APIAddr:         addr,
+		AllowedOrigins:  origins,
+		DatabaseURL:     databaseURL,
+		StaleAfter:      staleAfter,
+		MissionEpochUTC: missionEpoch,
 	}
 }

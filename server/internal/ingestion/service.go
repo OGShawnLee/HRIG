@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,11 +20,25 @@ import (
 )
 
 type Service struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	pubMu     sync.RWMutex
+	publisher FramePublisher
 }
 
 func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{pool: pool}
+}
+
+func (s *Service) SetPublisher(pub FramePublisher) {
+	s.pubMu.Lock()
+	defer s.pubMu.Unlock()
+	s.publisher = pub
+}
+
+func (s *Service) getPublisher() FramePublisher {
+	s.pubMu.RLock()
+	defer s.pubMu.RUnlock()
+	return s.publisher
 }
 
 func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, error) {
@@ -126,6 +141,15 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		return IngestResult{}, mapPgError(err)
 	}
 
+	var astronautIDStr *string
+	if astronautID.Valid {
+		s := formatUUID(astronautID)
+		astronautIDStr = &s
+	}
+
+	frames := make([]model.TelemetryFrame, 0, len(req.Readings))
+	recordedAtUTC := meas.RecordedAtUtc.Time.UTC()
+
 	for _, r := range req.Readings {
 		metricCode := strings.TrimSpace(r.MetricCode)
 		metric, err := q.GetActiveMetricByCode(ctx, metricCode)
@@ -148,11 +172,13 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		}
 
 		var (
-			valNumeric  pgtype.Numeric
-			valScale    *int16
-			valText     *string
-			unitID      pgtype.UUID
-			classifyVal float64
+			valNumeric    pgtype.Numeric
+			valNumericPtr *float64
+			valScale      *int16
+			valText       *string
+			unitID        pgtype.UUID
+			unitCodePtr   *string
+			classifyVal   float64
 		)
 
 		switch metric.ValueType {
@@ -165,13 +191,17 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 				return IngestResult{}, err
 			}
 			valNumeric = num
-			classifyVal = *r.ValueNumeric
+			vn := *r.ValueNumeric
+			valNumericPtr = &vn
+			classifyVal = vn
 
 			unit, err := lookupAndValidateUnit(ctx, q, r.UnitCode, metric.BaseUnitDimension)
 			if err != nil {
 				return IngestResult{}, err
 			}
 			unitID = unit.ID
+			uc := unit.Code
+			unitCodePtr = &uc
 
 		case db.ValueTypeScale:
 			if r.ValueScale == nil {
@@ -193,6 +223,8 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 				return IngestResult{}, err
 			}
 			unitID = unit.ID
+			uc := unit.Code
+			unitCodePtr = &uc
 
 		case db.ValueTypeText, db.ValueTypeImage:
 			if r.ValueText == nil || strings.TrimSpace(*r.ValueText) == "" {
@@ -248,15 +280,39 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		if err != nil {
 			return IngestResult{}, mapPgError(err)
 		}
+
+		var astroCopy *string
+		if astronautIDStr != nil {
+			a := *astronautIDStr
+			astroCopy = &a
+		}
+		frames = append(frames, model.TelemetryFrame{
+			Source:        string(device.Kind),
+			DeviceCode:    device.Code,
+			AstronautID:   astroCopy,
+			Environment:   env,
+			MetricType:    metric.MetricType,
+			MetricCode:    metric.Code,
+			UnitCode:      unitCodePtr,
+			ValueNumeric:  valNumericPtr,
+			ValueScale:    valScale,
+			ValueText:     valText,
+			Status:        model.ReadingStatus(status),
+			RecordedAtUTC: recordedAtUTC,
+		})
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return IngestResult{}, mapPgError(err)
 	}
 
+	if pub := s.getPublisher(); pub != nil {
+		pub.PublishFrames(frames)
+	}
+
 	return IngestResult{
 		MeasurementID: formatUUID(meas.ID),
-		RecordedAtUTC: meas.RecordedAtUtc.Time.UTC(),
+		RecordedAtUTC: recordedAtUTC,
 		ValuesCount:   len(req.Readings),
 	}, nil
 }
