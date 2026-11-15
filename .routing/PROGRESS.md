@@ -1,10 +1,8 @@
 # Project Progress
 
 ## Current Task
-- [ ] **Implement [`GUIDE.md`](../GUIDE.md) Sensor Ingestion Happy Flow + DB Pool** *(Next)*
-  - Wire `pgxpool` (`DATABASE_URL`), transactional `POST` ingestion service/handler using `server/internal/db/`, and end-to-end validation with the Go `bot` simulator (`bot/`).
-- [ ] **Design & Layer Backend Services, Models & Routes Incrementally** *(Next — starting from minimal `server/` Hello World baseline)*
-  - Define domain interfaces/models/routes one slice at a time (aligned with `db/001_schema.sql`, `002_seed.sql`, and [`SENSOR-READINGS.md`](../SENSOR-READINGS.md)), then update and unblock [`.tickets/005-postgres-db-integration/`](../.tickets/005-postgres-db-integration/task.md).
+- [ ] **Design & Layer Next Backend Slices (Realtime Stream + Read Endpoints)** *(Next — completing the whiteboard flow)*
+  - Add WebSocket/SSE realtime broadcast on successful ingestion commit plus read endpoints (`GET` telemetry latest, trends, astronauts, history) aligned with [`db/queries/`](../db/queries/) and [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md).
 - [ ] **Reconcile [`SPECIFICATION.md`](SPECIFICATION.md) & [`DOMAIN.md`](DOMAIN.md) with Reduced DB Scope & [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)** *(Pending)*
   - **Status enum (`RF01`, [`DOMAIN.md`](DOMAIN.md) vs. [`BD.md`](BD.md) `reading_status`):** DB persists 3 states (`normal`, `abnormal`, `critical`); decide whether to merge **Aviso** + **Valor Anómalo** into `Valor Anómalo` (`abnormal`) and mark **Dato Obsoleto** (`stale`, `RNF10`) explicitly as runtime-only.
   - **Operating modes (`RF15` vs. `environment_mode`):** Trim 4 habitats (`Nave / Estación Espacial / Rover / Base Lunar-Marte`) down to **`iva` / `eva`** modes.
@@ -32,14 +30,15 @@
 - [x] Generated cold scope & feasibility audit in [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)
 - [x] Completed [`.tickets/001-scaffold-wails3-app/`](../.tickets/001-scaffold-wails3-app/) — bare-bones Wails v3 + Go + Vue 3 + Vite + Bun + UnoCSS scaffold verified via `wails3 task client:check`
 - [x] Pulled & moved teammate's PostgreSQL DB design docs into context ([`BD.md`](BD.md), [`BDML.md`](BDML.md)) alongside [`db/001_schema.sql`](../db/001_schema.sql), [`db/002_seed.sql`](../db/002_seed.sql), [`db/003_demo_seed.sql`](../db/003_demo_seed.sql), [`db/README.md`](../db/README.md), and [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md)
-- [x] Locked initial backend & database ticket definitions: [`.tickets/003-full-stack-install-guide/`](../.tickets/003-full-stack-install-guide/), [`.tickets/004-scaffold-go-api/`](../.tickets/004-scaffold-go-api/) *(later reset to minimal `Chi` Hello World)*, and [`.tickets/005-postgres-db-integration/`](../.tickets/005-postgres-db-integration/) *(pending re-alignment with incremental API design)*
+- [x] Superseded [`.tickets/005-postgres-db-integration/`](../.tickets/005-postgres-db-integration/) via `006` + `007` *(remaining standalone schema/trigger parity checks tracked in [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md))*
 - [x] Completed [`.tickets/002-setup-portable-postgres-17/`](../.tickets/002-setup-portable-postgres-17/) — portable PostgreSQL `17.11` in ignored `local/pgsql/` (`hrig` DB) + Windows `db:*` tasks in [`Taskfile.yml`](../Taskfile.yml)
 - [x] Completed [`.tickets/003-full-stack-install-guide/`](../.tickets/003-full-stack-install-guide/) — created [`docs/STACK_SETUP.md`](../docs/STACK_SETUP.md) and indexed it in [`README.md`](../README.md) & [`CONTEXT.md`](CONTEXT.md)
 - [x] Completed [`.tickets/004-scaffold-go-api/`](../.tickets/004-scaffold-go-api/) — minimal `Chi v5` Hello World Go server (`GET /` -> `{"message":"hello world"}`, config, CORS, graceful shutdown, `server:*` tasks)
 - [x] Completed [`.tickets/006-integrate-sqlc/`](../.tickets/006-integrate-sqlc/) — `sqlc` (`v1.28.0`) + `pgx/v5` bindings in `server/internal/db/` (`db/queries/*.sql` aligned with `001_schema.sql` and `GUIDE.md`) + `wails3 task db:sqlc`
+- [x] Completed [`.tickets/007-guide-sensor-ingestion/`](../.tickets/007-guide-sensor-ingestion/) — [`GUIDE.md`](../GUIDE.md) `POST /` transactional ingestion (`:80`, `pgxpool`, `metric_threshold` status classification) + [`bot/go.mod`](../bot/go.mod) + `bot:dev`/`db:migrate`/`db:seed` tasks verified against [`bot/main.go`](../bot/main.go) & PostgreSQL 17
 
 ## Upcoming
-- [ ] Retire [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) once `005` passes automated integration tests on disposable `hrig_test`
+- [ ] Add automated DB schema/trigger parity test suite covering remaining [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) assertions (`media_asset`, `v_astronaut_age`, `trg_astronaut_updated_at`, `ON DELETE RESTRICT`, timestamp cascade, `003_demo_seed` counts) and retire [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) afterward
 - [ ] Draft & execute 3D anatomical figure ticket (interactive 3D low-poly anatomical figure + left floating procedures/diagnosis modal)
 - [ ] Connect `app/` Wails v3 service + TS bindings to `hrig/shared/model` and `server/` HTTP/WS API
 - [ ] Translate [`SPECIFICATION.md`](SPECIFICATION.md) and [`DOMAIN.md`](DOMAIN.md) to English and finalize delivery docs

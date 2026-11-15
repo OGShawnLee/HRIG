@@ -3,7 +3,7 @@
 | Field | Value |
 | :--- | :--- |
 | **ID** | `005` |
-| **Status** | `draft` *(ready to dispatch after `002` and `004` complete)* |
+| **Status** | `superseded` *(DB integration delivered via [006-integrate-sqlc](../006-integrate-sqlc/task.md) and [007-guide-sensor-ingestion](../007-guide-sensor-ingestion/task.md); remaining standalone trigger checks from `.routing/TEMP-DB-TESTING.md` deferred to a focused DB-test parity ticket)* |
 | **Worker** | `antigravity` / `gemini-4-hydrogen` (`thinking_level: medium`) |
 | **Role** | Backend & PostgreSQL Integration Engineer |
 | **Spec** | [spec.md](spec.md) |

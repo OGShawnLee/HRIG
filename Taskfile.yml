@@ -53,6 +53,11 @@ tasks:
       - task: server:build
       - ./bin/hrig-server{{exeExt}}
 
+  bot:dev:
+    dir: bot
+    cmds:
+      - go run .
+
   db:start:
     platforms: [windows]
     cmds:
@@ -72,6 +77,17 @@ tasks:
     platforms: [windows]
     cmds:
       - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig
+
+  db:migrate:
+    platforms: [windows]
+    cmds:
+      - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig -v ON_ERROR_STOP=1 -f ./db/001_schema.sql
+
+  db:seed:
+    platforms: [windows]
+    cmds:
+      - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig -v ON_ERROR_STOP=1 -f ./db/002_seed.sql
+      - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig -v ON_ERROR_STOP=1 -f ./db/003_demo_seed.sql
 
   db:sqlc:
     cmds:

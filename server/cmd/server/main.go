@@ -9,13 +9,35 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"hrig/server/internal/config"
 	serverhttp "hrig/server/internal/http"
+	"hrig/server/internal/ingestion"
 )
 
 func main() {
 	cfg := config.Load()
-	router := serverhttp.NewRouter(cfg)
+	if cfg.DatabaseURL == "" {
+		log.Fatal("DATABASE_URL (or HRIG_DATABASE_URL) is required")
+	}
+
+	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("failed to create database pool: %v", err)
+	}
+	defer pool.Close()
+
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	err = pool.Ping(pingCtx)
+	pingCancel()
+	if err != nil {
+		pool.Close()
+		log.Fatalf("failed to ping database: %v", err)
+	}
+
+	ingester := ingestion.NewService(pool)
+	router := serverhttp.NewRouter(cfg, ingester)
 
 	srv := &http.Server{
 		Addr:              cfg.APIAddr,
@@ -38,6 +60,7 @@ func main() {
 	select {
 	case err := <-errCh:
 		if err != nil {
+			pool.Close()
 			log.Fatalf("server error: %v", err)
 		}
 	case <-ctx.Done():
@@ -45,6 +68,7 @@ func main() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
+			pool.Close()
 			log.Fatalf("graceful shutdown failed: %v", err)
 		}
 		log.Println("server stopped")
