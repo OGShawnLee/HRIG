@@ -205,10 +205,6 @@ function resolveCardStatus(
   return worst
 }
 
-function isAlertSeverity(status: CardStatus): boolean {
-  return status === ReadingStatus.StatusAbnormal || status === ReadingStatus.StatusCritical
-}
-
 function statusTextClass(status: CardStatus): string {
   switch (status) {
     case ReadingStatus.StatusNormal:
@@ -217,11 +213,22 @@ function statusTextClass(status: CardStatus): string {
     case ReadingStatus.StatusAbnormal:
       return "text-warn"
     case ReadingStatus.StatusCritical:
-      return "text-crit"
+      return "text-crit vital-text-crit"
     case ReadingStatus.StatusStale:
       return "text-stale"
     default:
       return "text-side"
+  }
+}
+
+function cardSecondaryTextClass(status: CardStatus, nominalClass: string): string {
+  switch (status) {
+    case ReadingStatus.StatusAbnormal:
+      return "text-warn"
+    case ReadingStatus.StatusCritical:
+      return "text-crit vital-text-crit"
+    default:
+      return nominalClass
   }
 }
 
@@ -902,9 +909,18 @@ const vitalRows = computed<VitalRow[]>(() => {
             <div class="px-3 pt-2 flex items-center justify-between gap-2 text-[11px] font-bold tracking-wider">
               <div class="flex items-center gap-2 min-w-0">
                 <h2 :class="statusTextClass(row.status)" class="truncate">{{ row.title }}</h2>
-                <span v-if="row.subtitle" class="text-main shrink-0">{{ row.subtitle }}</span>
+                <span
+                  v-if="row.subtitle"
+                  class="shrink-0"
+                  :class="cardSecondaryTextClass(row.status, 'text-main')"
+                >
+                  {{ row.subtitle }}
+                </span>
               </div>
-              <span class="text-[10px] font-medium text-dull hud-value tabular-nums shrink-0">
+              <span
+                class="text-[10px] font-medium hud-value tabular-nums shrink-0"
+                :class="cardSecondaryTextClass(row.status, 'text-dull')"
+              >
                 {{ row.rangeLabel }}
               </span>
             </div>
@@ -927,13 +943,10 @@ const vitalRows = computed<VitalRow[]>(() => {
             </svg>
           </div>
 
-          <div
-            class="px-3 py-2 flex flex-col justify-between hud-value min-w-0"
-            :class="statusTextClass(row.status)"
-          >
+          <div class="px-3 py-2 flex flex-col justify-between hud-value min-w-0">
             <div
               class="flex items-baseline justify-between gap-1 text-[11px] font-semibold"
-              :class="isAlertSeverity(row.status) ? statusTextClass(row.status) : 'text-side'"
+              :class="cardSecondaryTextClass(row.status, 'text-side')"
             >
               <span class="truncate">{{ row.subtitle === "BP" ? "BP" : "" }}</span>
               <span>{{ row.unit }}</span>
@@ -946,13 +959,16 @@ const vitalRows = computed<VitalRow[]>(() => {
             </strong>
             <small
               class="text-[11px] font-semibold truncate"
-              :class="isAlertSeverity(row.status) ? statusTextClass(row.status) : 'text-side'"
+              :class="cardSecondaryTextClass(row.status, 'text-side')"
             >
               {{ row.subline }}
             </small>
           </div>
 
-          <div class="flex items-end justify-center pb-2 text-dull">
+          <div
+            class="flex items-end justify-center pb-2"
+            :class="cardSecondaryTextClass(row.status, 'text-dull')"
+          >
             <HelpCircle class="w-3.5 h-3.5" aria-hidden="true" />
           </div>
         </article>
@@ -995,18 +1011,6 @@ const vitalRows = computed<VitalRow[]>(() => {
 </template>
 
 <style scoped>
-@keyframes vital-frame-blink-warn {
-  0%,
-  100% {
-    border-color: #facc15;
-    box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.55), 0 0 14px rgba(250, 204, 21, 0.28);
-  }
-  50% {
-    border-color: rgba(250, 204, 21, 0.28);
-    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0), 0 0 0 rgba(250, 204, 21, 0);
-  }
-}
-
 @keyframes vital-frame-blink-crit {
   0%,
   100% {
@@ -1019,15 +1023,32 @@ const vitalRows = computed<VitalRow[]>(() => {
   }
 }
 
+@keyframes vital-text-blink-crit {
+  0%,
+  100% {
+    color: #f87171;
+    text-shadow: 0 0 8px rgba(248, 113, 113, 0.45);
+  }
+  50% {
+    color: rgba(248, 113, 113, 0.25);
+    text-shadow: 0 0 0 rgba(248, 113, 113, 0);
+  }
+}
+
 .vital-frame-warn {
   border-width: 2px;
   border-color: #facc15;
-  animation: vital-frame-blink-warn 1.3s ease-in-out infinite;
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35), 0 0 10px rgba(250, 204, 21, 0.16);
 }
 
 .vital-frame-crit {
   border-width: 2px;
   border-color: #f87171;
   animation: vital-frame-blink-crit 0.65s ease-in-out infinite;
+}
+
+.vital-text-crit {
+  color: #f87171;
+  animation: vital-text-blink-crit 0.65s ease-in-out infinite;
 }
 </style>

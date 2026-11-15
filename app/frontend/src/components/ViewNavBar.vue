@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, AlertTriangle, Home, Search } from "lucide-vue-next"
+import { Home, Search } from "lucide-vue-next"
 import { RouterLink, useRoute } from "vue-router"
 
 const route = useRoute()
@@ -41,24 +41,6 @@ const route = useRoute()
       :class="{ 'bg-surface border-line text-main ring-1 ring-line': route.name === 'dashboard-principal' }"
     >
       <span>Primary Vitals</span>
-    </RouterLink>
-
-    <RouterLink
-      :to="{ name: 'support-alert' }"
-      class="button-side h-9 px-3 text-xs gap-1.5"
-      :class="{ 'bg-surface border-line text-main ring-1 ring-line': route.name === 'support-alert' }"
-    >
-      <AlertTriangle class="w-3.5 h-3.5 text-warn" aria-hidden="true" />
-      <span>Support</span>
-    </RouterLink>
-
-    <RouterLink
-      :to="{ name: 'warning-alert' }"
-      class="button-side h-9 px-3 text-xs gap-1.5"
-      :class="{ 'bg-surface border-line text-main ring-1 ring-line': route.name === 'warning-alert' }"
-    >
-      <AlertCircle class="w-3.5 h-3.5 text-crit" aria-hidden="true" />
-      <span>Warning</span>
     </RouterLink>
   </nav>
 </template>
