@@ -25,3 +25,23 @@ tasks:
     dir: app
     cmds:
       - wails3 task bindings
+
+  db:start:
+    platforms: [windows]
+    cmds:
+      - ./local/pgsql/bin/pg_ctl.exe -D ./local/pgsql/data -l ./local/pgsql/logfile -o "-h 127.0.0.1 -p 5432" start
+
+  db:stop:
+    platforms: [windows]
+    cmds:
+      - ./local/pgsql/bin/pg_ctl.exe -D ./local/pgsql/data stop -m fast
+
+  db:status:
+    platforms: [windows]
+    cmds:
+      - ./local/pgsql/bin/pg_ctl.exe -D ./local/pgsql/data status
+
+  db:psql:
+    platforms: [windows]
+    cmds:
+      - ./local/pgsql/bin/psql.exe -h 127.0.0.1 -p 5432 -U postgres -d hrig

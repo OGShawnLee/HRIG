@@ -1,18 +1,24 @@
 # Project Progress
 
 ## Current Task
+- [ ] **Reconcile [`SPECIFICATION.md`](SPECIFICATION.md) & [`DOMAIN.md`](DOMAIN.md) with Reduced DB Scope & [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)** *(Pending)*
+  - **Status enum (`RF01`, [`DOMAIN.md`](DOMAIN.md) vs. [`BD.md`](BD.md) `reading_status`):** DB persists 3 states (`normal`, `abnormal`, `critical`); decide whether to merge **Aviso** + **Valor Anómalo** into `Valor Anómalo` (`abnormal`) and mark **Dato Obsoleto** (`stale`, `RNF10`) explicitly as runtime-only.
+  - **Operating modes (`RF15` vs. `environment_mode`):** Trim 4 habitats (`Nave / Estación Espacial / Rover / Base Lunar-Marte`) down to **`iva` / `eva`** modes.
+  - **Out-of-DB scope cuts (`RF06`–`RF09`, `RF14`, `RF16`, `RNF12`):** DB excludes auth/external systems (`RF09`/`RNF12`), missions/locations, persisted alerts, symptoms, procedures, and scheduled reminders (`RF16`), and simplifies crew profiles (`RF14`) to `astronaut` (`full_name`, `birth_date`, derived `age`, `nationality_code`, `nationality_label`). Update specs accordingly and keep alerts/procedures/symptoms in app/server config.
+  - **Metric catalog (`DOMAIN.md` vs. [`db/002_seed.sql`](../db/002_seed.sql)):** DB drops `cortisol` and `caloric_intake`, keeps `rbc_count` & `wbc_count`, and splits environmental vs. astronaut readings (`metric_type = 2` enforces `astronaut_id IS NULL`). Align `DOMAIN.md` *Datos Secundarios* / *Métricas Excluidas*.
+  - **Server thresholds (`metric_threshold` vs. `RF06`/`RF07`, [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md)):** Document server-evaluated limits (`<= critical_min` / `>= critical_max` → `critical`, `< warning_min` / `> warning_max` → `abnormal`, `manual` mode for `ultrasound`), keep mockup ranges tagged as unverified (`'demo - clinical review required'`), and confirm `EVA` vs. `IVA` threshold handling.
+  - **Timestamps (`RNF11` vs. `001_schema.sql`):** DB stores `recorded_at_utc` (`timestamptz`) only; update `RNF11` to derive `MET` in the API/UI from a mission epoch or remove `MET` persistence.
+  - **Engine version note (`BD.md`/`BDML.md` vs. `001_schema.sql`):** Align `BD.md` line 296 & `BDML.md` line 5 (`PostgreSQL 18`) with `db/001_schema.sql` (`PostgreSQL 17+`).
 - [ ] **Review [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)** *(Pending — Team Review)*
-  - Review the `venture-killer` scope & feasibility audit and confirm which features to cut from [`DOMAIN.md`](DOMAIN.md) and [`SPECIFICATION.md`](SPECIFICATION.md).
+  - Confirm remaining non-DB scope cuts in [`DOMAIN.md`](DOMAIN.md) and [`SPECIFICATION.md`](SPECIFICATION.md).
 - [ ] **Working on the UI & UI Flow** *(In Progress)*
   - General UI flow defined; designing the core interactive visualization prototype (primary/secondary dashboards, responsive anatomical figure, alerts, and guidance views).
   - Adding a persistent **Command Palette / Universal Search** ("Dynamic Island" / Omnibox) rendered at all times—accessible via touch/click or `Ctrl+K`—for fast system-wide search and navigation.
-- [ ] **Scope Reduction, Domain & Specification Refinement** *(Pending)*
-  - Apply approved cuts from [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md) to [`DOMAIN.md`](DOMAIN.md) and [`SPECIFICATION.md`](SPECIFICATION.md) so the glossary and requirements stay lean for hackathon delivery.
 
 ## Completed
 - [x] Documented challenge brief in [`INPUT.md`](INPUT.md)
-- [x] Created and updated [`README.md`](../README.md) with repository navigation
-- [x] Added [`CONTEXT.md`](CONTEXT.md) with Conventional Commits (English) ground rule
+- [x] Created and updated [`README.md`](../README.md) with repository navigation (and fixed broken `DATABASE_DESIGN.md` link to point to `db/README.md`, `.routing/BD.md`, and `.routing/BDML.md`)
+- [x] Added [`CONTEXT.md`](CONTEXT.md) with Conventional Commits (English) ground rule and indexed `BD.md`, `BDML.md`, and `db/`
 - [x] Added NASA Five Hazards reminder notes in [`reference/`](reference/)
 - [x] Defined minimal health metric prioritization in [`docs/METRICS_PRIORIZATION.md`](../docs/METRICS_PRIORIZATION.md)
 - [x] Added simplified UI/UX guidelines in [`DESIGN.md`](DESIGN.md)
@@ -21,9 +27,14 @@
 - [x] Adapted workflow skills (`router`, `ticket`, `venture-killer`) in [`.claude/skills/`](../.claude/skills/)
 - [x] Generated cold scope & feasibility audit in [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)
 - [x] Completed [`.tickets/001-scaffold-wails3-app/`](../.tickets/001-scaffold-wails3-app/) — bare-bones Wails v3 + Go + Vue 3 + Vite + Bun + UnoCSS scaffold verified via `wails3 task client:check`
+- [x] Pulled & moved teammate's PostgreSQL DB design docs into context ([`BD.md`](BD.md), [`BDML.md`](BDML.md)) alongside [`db/001_schema.sql`](../db/001_schema.sql), [`db/002_seed.sql`](../db/002_seed.sql), [`db/003_demo_seed.sql`](../db/003_demo_seed.sql), [`db/README.md`](../db/README.md), and [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md)
+- [x] Locked backend & database ticket definitions: [`.tickets/003-full-stack-install-guide/`](../.tickets/003-full-stack-install-guide/), [`.tickets/004-scaffold-go-api/`](../.tickets/004-scaffold-go-api/) (with `hrig/shared/model` for Wails TS bindings), and [`.tickets/005-postgres-db-integration/`](../.tickets/005-postgres-db-integration/) (locked to `db/*.sql` + `TEMP-DB-TESTING.md` suite)
+- [x] Completed [`.tickets/002-setup-portable-postgres-17/`](../.tickets/002-setup-portable-postgres-17/) — portable PostgreSQL `17.11` in ignored `local/pgsql/` (`hrig` DB) + Windows `db:*` tasks in [`Taskfile.yml`](../Taskfile.yml)
 
 ## Upcoming
-- [ ] Draft & execute `.tickets/002-3d-anatomical-figure/` (interactive 3D low-poly anatomical figure + left floating procedures/diagnosis modal)
-- [ ] Trim scope and refine [`DOMAIN.md`](DOMAIN.md) and [`SPECIFICATION.md`](SPECIFICATION.md) based on [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md)
-- [ ] Health indicator input, medical records, and risk assessment logic
+- [ ] Run [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) checks on disposable `hrig_test` (ready now with `002` complete)
+- [ ] Refine & execute `.tickets/004-scaffold-go-api/` (`shared/model` + Go Chi + Gorilla WebSocket API)
+- [ ] Execute `.tickets/005-postgres-db-integration/` (`pgx/v5` `PostgresStore` + automated `TEMP-DB-TESTING.md` suite; retire [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) once accepted)
+- [ ] Execute `.tickets/003-full-stack-install-guide/` (`docs/STACK_SETUP.md`)
+- [ ] Draft & execute 3D anatomical figure ticket (interactive 3D low-poly anatomical figure + left floating procedures/diagnosis modal)
 - [ ] Translate [`SPECIFICATION.md`](SPECIFICATION.md) and [`DOMAIN.md`](DOMAIN.md) to English and finalize delivery docs

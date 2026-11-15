@@ -4,3 +4,4 @@ dist/
 build/
 !app/build/
 *.exe
+/local/pgsql/
