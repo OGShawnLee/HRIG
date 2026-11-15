@@ -15,6 +15,7 @@ Resource Integration Gear provides an offline-first interface that gathers key h
 ### Core Project Docs
 - [`PROJECT-REVIEW.md`](PROJECT-REVIEW.md) — Scope & feasibility audit (`venture-killer`) with proposed MVP cuts *(pending team review)*.
 - [`docs/METRICS_PRIORIZATION.md`](docs/METRICS_PRIORIZATION.md) — Health metric hierarchy (Primary HUD, Secondary Trends, Excluded) and NASA references.
+- [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md) — PostgreSQL schema proposal (objects, attributes, relations, seeds) *(pending review before SQL)*.
 
 ### Planning & Ground Rules (`.routing/`)
 - [`.routing/PROGRESS.md`](.routing/PROGRESS.md) — Current tasks, completed milestones, and upcoming work.
