@@ -3,7 +3,7 @@
 | Field | Value |
 | :--- | :--- |
 | **ID** | `023-responsive-adaptive-main-layout` |
-| **Status** | `completed` |
+| **Status** | `cancelled` |
 | **Scope** | `app/frontend/src/views/HomeView.vue`, `app/frontend/src/components/CrewCard.vue`, `app/frontend/src/components/EnvironmentCard.vue`, `app/frontend/src/components/MedicalManualButton.vue`, `app/frontend/src/views/dashboard-principal.vue` |
 
 ## Context

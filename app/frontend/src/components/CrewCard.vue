@@ -109,7 +109,7 @@ function statusLabel(status: TelemetryDisplayStatus): string {
 
 <template>
   <article
-    class="hud-card p-6 flex flex-col justify-between gap-5 cursor-pointer transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line"
+    class="hud-card p-6 flex flex-col gap-5 cursor-pointer transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line"
     role="button"
     tabindex="0"
     :aria-label="`Open ${astronaut.fullName} primary vitals`"
@@ -166,13 +166,13 @@ function statusLabel(status: TelemetryDisplayStatus): string {
       </div>
     </div>
 
-    <dl class="flex-1 content-center grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 items-baseline text-sm sm:text-base">
+    <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 items-baseline text-sm sm:text-base">
       <template v-for="row in rows" :key="row.key">
         <dt class="font-semibold text-main whitespace-nowrap">
           {{ row.label }}
         </dt>
         <dd
-          class="hud-value inline-flex items-center justify-end gap-1.5 min-w-0"
+          class="hud-value inline-flex items-center gap-1.5 min-w-0"
           :class="statusTextClass(row.status)"
           :title="`${row.label.replace(':', '')} — ${statusLabel(row.status)}`"
         >

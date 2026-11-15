@@ -12,6 +12,25 @@ import {
   type NavReadingStatus,
 } from "@/composables/useTelemetryNavigation"
 
+const DESIGN_WIDTH = 1120
+const DESIGN_HEIGHT = 860
+const BASE_FONT_SIZE = 16
+const MIN_SCALE = 0.7
+const MAX_SCALE = 2.25
+const MOBILE_BREAKPOINT = 768
+
+function updateViewportScale() {
+  if (window.innerWidth < MOBILE_BREAKPOINT) {
+    document.documentElement.style.fontSize = ""
+    return
+  }
+  const scale = Math.max(
+    MIN_SCALE,
+    Math.min(MAX_SCALE, Math.min(window.innerWidth / DESIGN_WIDTH, window.innerHeight / DESIGN_HEIGHT)),
+  )
+  document.documentElement.style.fontSize = `${(BASE_FONT_SIZE * scale).toFixed(2)}px`
+}
+
 const router = useRouter()
 registerTelemetryRouter(router)
 
@@ -42,11 +61,15 @@ function onGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  updateViewportScale()
+  window.addEventListener("resize", updateViewportScale)
   window.addEventListener(TELEMETRY_STATUS_EVENT, onTelemetryStatusEvent)
   window.addEventListener("keydown", onGlobalKeydown)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener("resize", updateViewportScale)
+  document.documentElement.style.fontSize = ""
   window.removeEventListener(TELEMETRY_STATUS_EVENT, onTelemetryStatusEvent)
   window.removeEventListener("keydown", onGlobalKeydown)
 })

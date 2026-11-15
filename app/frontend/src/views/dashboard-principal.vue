@@ -881,10 +881,10 @@ const vitalRows = computed<VitalRow[]>(() => {
 
 <template>
   <main
-    class="flex-1 w-full bg-ground text-main px-4 sm:px-8 py-4 sm:py-6 flex flex-col items-center gap-4 sm:gap-6"
+    class="flex-1 w-full bg-ground text-main px-4 sm:px-8 py-6 flex flex-col items-center gap-6"
     aria-label="Primary Vitals Dashboard"
   >
-    <header class="w-full max-w-[1680px] mx-auto flex flex-wrap items-center gap-3">
+    <header class="w-full max-w-4xl flex flex-wrap items-center gap-3">
       <button
         type="button"
         class="button-side h-10 px-3 text-xs gap-1.5 shrink-0"
@@ -911,12 +911,12 @@ const vitalRows = computed<VitalRow[]>(() => {
       </div>
     </header>
 
-    <div class="w-full max-w-[1680px] mx-auto flex-1 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_240px] lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px] gap-4 sm:gap-6 items-stretch">
+    <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-[1fr_200px] gap-6 items-start">
       <section class="flex flex-col gap-3 min-w-0" aria-label="Primary vital signs">
         <article
           v-for="row in vitalRows"
           :key="row.id"
-          class="hud-card overflow-hidden flex-1 min-h-24 grid grid-cols-[minmax(0,1fr)_140px_36px] sm:grid-cols-[minmax(0,1fr)_168px_44px] lg:grid-cols-[minmax(0,1fr)_196px_48px]"
+          class="hud-card overflow-hidden grid grid-cols-[minmax(0,1fr)_140px_36px] sm:grid-cols-[minmax(0,1fr)_168px_44px] min-h-22"
           :class="cardFrameClass(row.status)"
         >
           <div class="bg-surface border-r border-solid border-lineDim flex flex-col justify-between min-w-0">
@@ -938,7 +938,7 @@ const vitalRows = computed<VitalRow[]>(() => {
                 {{ row.rangeLabel }}
               </span>
             </div>
-            <svg viewBox="0 0 300 64" preserveAspectRatio="none" class="w-full flex-1 min-h-14 max-h-28 px-1" aria-hidden="true">
+            <svg viewBox="0 0 300 64" preserveAspectRatio="none" class="w-full h-14 px-1" aria-hidden="true">
               <path
                 v-if="row.chart.fillPath"
                 :d="row.chart.fillPath"
@@ -992,40 +992,36 @@ const vitalRows = computed<VitalRow[]>(() => {
         </article>
       </section>
 
-      <aside class="hud-card h-full p-5 sm:p-6 flex flex-col items-center justify-between gap-4 text-center">
-        <div class="flex-1 flex items-center justify-center w-full min-h-0">
-          <svg
-            class="w-32 sm:w-40 lg:w-48 max-h-[380px] h-auto text-side"
-            viewBox="0 0 160 360"
-            aria-label="Astronaut silhouette"
-          >
-            <g class="fill-surface stroke-main" stroke-width="2.5">
-              <path
-                d="M68 12h30l10 10 4 29-10 22-8 8 19 13 16 8 4 57 13 29-9 20-11-6-5-26-8-23 4 55-4 41-12 68-11 4-5-7 4-64-7-34-7 34 4 64-6 7-11-4-12-68-4-41 5-55-9 23-5 26-11 6-9-20 13-29 4-57 16-8 19-13-8-8-10-22 4-29 10-10Z"
-              />
-              <path d="M68 12h30l10 10-2 24-7 25-21 10-21-10-7-25-2-24 10-10Z" />
-            </g>
-            <g fill="none" class="stroke-side" stroke-width="1.5">
-              <path
-                d="M60 81l-15 18-8 58-17 29 8 20 13-6 7-27 11-24M100 81l15 18 8 58 17 29-8 20-13-6-7-27-11-24M51 181l8 54-4 41 12 68M109 181l-8 54 4 41-12 68M53 98h54M50 154h60M53 205h54M58 236h44"
-              />
-            </g>
-          </svg>
-        </div>
+      <aside class="hud-card p-5 flex flex-col items-center gap-3 text-center">
+        <svg
+          class="w-32 sm:w-36 h-auto text-side"
+          viewBox="0 0 160 360"
+          aria-label="Astronaut silhouette"
+        >
+          <g class="fill-surface stroke-main" stroke-width="2.5">
+            <path
+              d="M68 12h30l10 10 4 29-10 22-8 8 19 13 16 8 4 57 13 29-9 20-11-6-5-26-8-23 4 55-4 41-12 68-11 4-5-7 4-64-7-34-7 34 4 64-6 7-11-4-12-68-4-41 5-55-9 23-5 26-11 6-9-20 13-29 4-57 16-8 19-13-8-8-10-22 4-29 10-10Z"
+            />
+            <path d="M68 12h30l10 10-2 24-7 25-21 10-21-10-7-25-2-24 10-10Z" />
+          </g>
+          <g fill="none" class="stroke-side" stroke-width="1.5">
+            <path
+              d="M60 81l-15 18-8 58-17 29 8 20 13-6 7-27 11-24M100 81l15 18 8 58 17 29-8 20-13-6-7-27-11-24M51 181l8 54-4 41 12 68M109 181l-8 54 4 41-12 68M53 98h54M50 154h60M53 205h54M58 236h44"
+            />
+          </g>
+        </svg>
 
-        <div class="flex flex-col items-center gap-3">
-          <h2 class="text-sm sm:text-base font-semibold text-main">{{ selectedAstronautName }}</h2>
+        <h2 class="text-sm font-semibold text-main">{{ selectedAstronautName }}</h2>
 
-          <div class="hud-pill border-lineDim px-3 py-1.5 flex flex-col items-start gap-1 text-xs">
-            <span class="inline-flex items-center gap-1.5 text-warn">
-              <AlertTriangle class="w-3 h-3 shrink-0" aria-hidden="true" />
-              <span>Caution</span>
-            </span>
-            <span class="inline-flex items-center gap-1.5 text-crit">
-              <AlertCircle class="w-3 h-3 shrink-0" aria-hidden="true" />
-              <span>Warning</span>
-            </span>
-          </div>
+        <div class="hud-pill border-lineDim px-3 py-1.5 flex flex-col items-start gap-1 text-xs">
+          <span class="inline-flex items-center gap-1.5 text-warn">
+            <AlertTriangle class="w-3 h-3 shrink-0" aria-hidden="true" />
+            <span>Caution</span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 text-crit">
+            <AlertCircle class="w-3 h-3 shrink-0" aria-hidden="true" />
+            <span>Warning</span>
+          </span>
         </div>
       </aside>
     </div>

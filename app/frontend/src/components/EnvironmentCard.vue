@@ -71,24 +71,20 @@ function statusLabel(status: TelemetryDisplayStatus): string {
 
 <template>
   <section
-    class="hud-card w-full h-full p-5 sm:p-6 flex flex-col justify-between gap-4"
+    class="hud-card w-full sm:w-92 p-6 flex flex-col gap-4"
     aria-label="Cabin Environment"
   >
     <h2 class="text-base font-medium text-main leading-tight">
       Environment
     </h2>
 
-    <dl class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-3 text-sm sm:text-base">
-      <div
-        v-for="row in rows"
-        :key="row.key"
-        class="flex items-baseline justify-between gap-3 border-b border-solid border-lineDim/40 pb-1.5 min-w-0"
-      >
-        <dt class="font-semibold text-main whitespace-nowrap shrink-0">
+    <dl class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2.5 items-baseline text-sm sm:text-base">
+      <template v-for="row in rows" :key="row.key">
+        <dt class="font-semibold text-main whitespace-nowrap">
           {{ row.label }}
         </dt>
         <dd
-          class="hud-value inline-flex items-center justify-end gap-1.5 min-w-0"
+          class="hud-value inline-flex items-center gap-1.5 min-w-0"
           :class="statusTextClass(row.status)"
           :title="`${row.label.replace(':', '')} — ${statusLabel(row.status)}`"
         >
@@ -112,7 +108,7 @@ function statusLabel(status: TelemetryDisplayStatus): string {
             ({{ statusLabel(row.status) }})
           </span>
         </dd>
-      </div>
+      </template>
     </dl>
   </section>
 </template>
