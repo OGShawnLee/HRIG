@@ -16,7 +16,8 @@
   - [`gravity-fields.md`](reference/gravity-fields.md)
   - [`hostile-closed-environments.md`](reference/hostile-closed-environments.md)
 - External project docs:
-  - [`README.md`](../README.md) — Minimal hackathon project overview.
+  - [`README.md`](../README.md) — Minimal hackathon project overview and repository navigation.
+  - [`PROJECT-REVIEW.md`](../PROJECT-REVIEW.md) — Cold scope & feasibility review (`venture-killer`) pending team review.
   - [`METRICS_PRIORIZATION.md`](../docs/METRICS_PRIORIZATION.md) — Minimal health metric tiers (Primary, Secondary, Excluded) and NASA references.
   - [`.claude/skills/`](../.claude/skills/) — Project workflow skills (`router`, `ticket`, `venture-killer`).
 
