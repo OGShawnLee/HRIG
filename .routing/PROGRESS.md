@@ -36,6 +36,7 @@
 - [x] Completed [`.tickets/004-scaffold-go-api/`](../.tickets/004-scaffold-go-api/) — minimal `Chi v5` Hello World Go server (`GET /` -> `{"message":"hello world"}`, config, CORS, graceful shutdown, `server:*` tasks)
 - [x] Completed [`.tickets/006-integrate-sqlc/`](../.tickets/006-integrate-sqlc/) — `sqlc` (`v1.28.0`) + `pgx/v5` bindings in `server/internal/db/` (`db/queries/*.sql` aligned with `001_schema.sql` and `GUIDE.md`) + `wails3 task db:sqlc`
 - [x] Completed [`.tickets/007-guide-sensor-ingestion/`](../.tickets/007-guide-sensor-ingestion/) — [`GUIDE.md`](../GUIDE.md) `POST /` transactional ingestion (`:80`, `pgxpool`, `metric_threshold` status classification) + [`bot/go.mod`](../bot/go.mod) + `bot:dev`/`db:migrate`/`db:seed` tasks verified against [`bot/main.go`](../bot/main.go) & PostgreSQL 17
+- [x] Completed [`.tickets/008-unify-shared-ingest-schema/`](../.tickets/008-unify-shared-ingest-schema/) — unified `bot/` and `server/` under [`shared/model/ingest.go`](../shared/model/ingest.go) (`IngestRequest`, `IngestReading`, `IngestResult`, `EnvironmentMode`, `ValueType`) verified in workspace and `GOWORK=off` modes + PostgreSQL 17 integration & live `:80` smoke tests
 
 ## Upcoming
 - [ ] Add automated DB schema/trigger parity test suite covering remaining [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) assertions (`media_asset`, `v_astronaut_age`, `trg_astronaut_updated_at`, `ON DELETE RESTRICT`, timestamp cascade, `003_demo_seed` counts) and retire [`TEMP-DB-TESTING.md`](TEMP-DB-TESTING.md) afterward

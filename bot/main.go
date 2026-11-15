@@ -14,41 +14,27 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"hrig/shared/model"
 )
 
 // The metric list mirrors db/002_seed.sql. A sensor sends one measurement
 // session containing the readings it owns; the server resolves catalog codes
 // to database IDs and persists the session and values.
 type metric struct {
-	Code  string  `json:"metric_code"`
-	Unit  string  `json:"unit_code,omitempty"`
-	Kind  string  `json:"-"` // numeric, scale, or image
-	Min   float64 `json:"-"`
-	Max   float64 `json:"-"`
-	Scale int     `json:"-"`
+	Code  string          `json:"metric_code"`
+	Unit  string          `json:"unit_code,omitempty"`
+	Kind  model.ValueType `json:"-"` // numeric, scale, or image
+	Min   float64         `json:"-"`
+	Max   float64         `json:"-"`
+	Scale int             `json:"-"`
 }
 
 type sensor struct {
 	Device      string
-	Environment string
+	Environment model.EnvironmentMode
 	Astronaut   bool
 	Metrics     []metric
-}
-
-type reading struct {
-	MetricCode   string   `json:"metric_code"`
-	ValueNumeric *float64 `json:"value_numeric,omitempty"`
-	ValueScale   *int     `json:"value_scale,omitempty"`
-	ValueText    *string  `json:"value_text,omitempty"`
-	UnitCode     string   `json:"unit_code,omitempty"`
-}
-
-type payload struct {
-	DeviceCode  string    `json:"device_code"`
-	Environment string    `json:"environment"`
-	RecordedAt  time.Time `json:"recorded_at_utc"`
-	Astronaut   *string   `json:"astronaut_name,omitempty"`
-	Readings    []reading `json:"readings"`
 }
 
 type generator struct {
@@ -59,42 +45,42 @@ type generator struct {
 var crew = []string{"Ana Torres", "Liam Okafor", "Sofia Petrov"}
 
 var sensors = []sensor{
-	{Device: "biomonitor_01", Environment: "iva", Astronaut: true, Metrics: []metric{
-		{Code: "spo2", Unit: "%", Kind: "numeric", Min: 96, Max: 99},
-		{Code: "resp_rate", Unit: "/min", Kind: "numeric", Min: 12, Max: 19},
-		{Code: "heart_rate", Unit: "/min", Kind: "numeric", Min: 55, Max: 95},
-		{Code: "hrv_rmssd", Unit: "ms", Kind: "numeric", Min: 25, Max: 75},
-		{Code: "core_temp", Unit: "Cel", Kind: "numeric", Min: 36.4, Max: 37.2},
-		{Code: "sleep_hours", Unit: "h", Kind: "numeric", Min: 7, Max: 9},
-		{Code: "mood", Unit: "{score}", Kind: "scale", Scale: 4},
-		{Code: "hydration_intake", Unit: "mL", Kind: "numeric", Min: 1800, Max: 3000},
-		{Code: "body_mass", Unit: "kg", Kind: "numeric", Min: 60, Max: 85},
+	{Device: "biomonitor_01", Environment: model.EnvIVA, Astronaut: true, Metrics: []metric{
+		{Code: "spo2", Unit: "%", Kind: model.ValueNumeric, Min: 96, Max: 99},
+		{Code: "resp_rate", Unit: "/min", Kind: model.ValueNumeric, Min: 12, Max: 19},
+		{Code: "heart_rate", Unit: "/min", Kind: model.ValueNumeric, Min: 55, Max: 95},
+		{Code: "hrv_rmssd", Unit: "ms", Kind: model.ValueNumeric, Min: 25, Max: 75},
+		{Code: "core_temp", Unit: "Cel", Kind: model.ValueNumeric, Min: 36.4, Max: 37.2},
+		{Code: "sleep_hours", Unit: "h", Kind: model.ValueNumeric, Min: 7, Max: 9},
+		{Code: "mood", Unit: "{score}", Kind: model.ValueScale, Scale: 4},
+		{Code: "hydration_intake", Unit: "mL", Kind: model.ValueNumeric, Min: 1800, Max: 3000},
+		{Code: "body_mass", Unit: "kg", Kind: model.ValueNumeric, Min: 60, Max: 85},
 	}},
-	{Device: "baumanometro_01", Environment: "iva", Astronaut: true, Metrics: []metric{
-		{Code: "bp_systolic", Unit: "mm[Hg]", Kind: "numeric", Min: 105, Max: 120},
-		{Code: "bp_diastolic", Unit: "mm[Hg]", Kind: "numeric", Min: 65, Max: 80},
+	{Device: "baumanometro_01", Environment: model.EnvIVA, Astronaut: true, Metrics: []metric{
+		{Code: "bp_systolic", Unit: "mm[Hg]", Kind: model.ValueNumeric, Min: 105, Max: 120},
+		{Code: "bp_diastolic", Unit: "mm[Hg]", Kind: model.ValueNumeric, Min: 65, Max: 80},
 	}},
-	{Device: "dosimeter_01", Environment: "iva", Astronaut: true, Metrics: []metric{
-		{Code: "radiation_rate", Unit: "uSv/h", Kind: "numeric", Min: 0.05, Max: 0.4},
-		{Code: "radiation_dose_cum", Unit: "mSv", Kind: "numeric", Min: 1, Max: 18},
+	{Device: "dosimeter_01", Environment: model.EnvIVA, Astronaut: true, Metrics: []metric{
+		{Code: "radiation_rate", Unit: "uSv/h", Kind: model.ValueNumeric, Min: 0.05, Max: 0.4},
+		{Code: "radiation_dose_cum", Unit: "mSv", Kind: model.ValueNumeric, Min: 1, Max: 18},
 	}},
-	{Device: "cabin_sensor_01", Environment: "iva", Metrics: []metric{
-		{Code: "cabin_o2", Unit: "%", Kind: "numeric", Min: 20.5, Max: 21.5},
-		{Code: "cabin_ppco2", Unit: "mm[Hg]", Kind: "numeric", Min: 0.3, Max: 2.5},
-		{Code: "cabin_pressure", Unit: "kPa", Kind: "numeric", Min: 99, Max: 103},
-		{Code: "cabin_temp", Unit: "Cel", Kind: "numeric", Min: 20, Max: 24},
+	{Device: "cabin_sensor_01", Environment: model.EnvIVA, Metrics: []metric{
+		{Code: "cabin_o2", Unit: "%", Kind: model.ValueNumeric, Min: 20.5, Max: 21.5},
+		{Code: "cabin_ppco2", Unit: "mm[Hg]", Kind: model.ValueNumeric, Min: 0.3, Max: 2.5},
+		{Code: "cabin_pressure", Unit: "kPa", Kind: model.ValueNumeric, Min: 99, Max: 103},
+		{Code: "cabin_temp", Unit: "Cel", Kind: model.ValueNumeric, Min: 20, Max: 24},
 	}},
-	{Device: "suit_sensor_01", Environment: "eva", Metrics: []metric{
-		{Code: "suit_pressure", Unit: "kPa", Kind: "numeric", Min: 28, Max: 30},
-		{Code: "suit_temp", Unit: "Cel", Kind: "numeric", Min: 20, Max: 32},
+	{Device: "suit_sensor_01", Environment: model.EnvEVA, Metrics: []metric{
+		{Code: "suit_pressure", Unit: "kPa", Kind: model.ValueNumeric, Min: 28, Max: 30},
+		{Code: "suit_temp", Unit: "Cel", Kind: model.ValueNumeric, Min: 20, Max: 32},
 	}},
-	{Device: "lab_assay_01", Environment: "iva", Astronaut: true, Metrics: []metric{
-		{Code: "blood_glucose", Unit: "mg/dL", Kind: "numeric", Min: 80, Max: 120},
-		{Code: "rbc_count", Unit: "10*6/uL", Kind: "numeric", Min: 4.2, Max: 5.8},
-		{Code: "wbc_count", Unit: "10*3/uL", Kind: "numeric", Min: 4.5, Max: 10},
+	{Device: "lab_assay_01", Environment: model.EnvIVA, Astronaut: true, Metrics: []metric{
+		{Code: "blood_glucose", Unit: "mg/dL", Kind: model.ValueNumeric, Min: 80, Max: 120},
+		{Code: "rbc_count", Unit: "10*6/uL", Kind: model.ValueNumeric, Min: 4.2, Max: 5.8},
+		{Code: "wbc_count", Unit: "10*3/uL", Kind: model.ValueNumeric, Min: 4.5, Max: 10},
 	}},
-	{Device: "ultrasound_01", Environment: "iva", Astronaut: true, Metrics: []metric{
-		{Code: "ultrasound", Kind: "image"},
+	{Device: "ultrasound_01", Environment: model.EnvIVA, Astronaut: true, Metrics: []metric{
+		{Code: "ultrasound", Kind: model.ValueImage},
 	}},
 }
 
@@ -137,9 +123,14 @@ func sendBatch(ctx context.Context, client *http.Client, endpoint string, crewCo
 			recipients = crew[:crewCount]
 		}
 		for _, name := range recipients {
-			p := payload{DeviceCode: s.Device, Environment: s.Environment, RecordedAt: time.Now().UTC(), Readings: gen.makeReadings(s, name)}
+			p := model.IngestRequest{
+				DeviceCode:    s.Device,
+				Environment:   s.Environment,
+				RecordedAtUTC: time.Now().UTC().Format(time.RFC3339Nano),
+				Readings:      gen.makeReadings(s, name),
+			}
 			if name != "" {
-				p.Astronaut = &name
+				p.AstronautName = &name
 			}
 			body, err := json.Marshal(p)
 			if err != nil {
@@ -170,12 +161,16 @@ func sendBatch(ctx context.Context, client *http.Client, endpoint string, crewCo
 	return nil
 }
 
-func (g *generator) makeReadings(s sensor, astronaut string) []reading {
-	out := make([]reading, 0, len(s.Metrics))
+func (g *generator) makeReadings(s sensor, astronaut string) []model.IngestReading {
+	out := make([]model.IngestReading, 0, len(s.Metrics))
 	for _, m := range s.Metrics {
-		r := reading{MetricCode: m.Code, UnitCode: m.Unit}
+		r := model.IngestReading{MetricCode: m.Code}
+		if m.Unit != "" {
+			unit := m.Unit
+			r.UnitCode = &unit
+		}
 		switch m.Kind {
-		case "numeric":
+		case model.ValueNumeric:
 			key := s.Device + "/" + astronaut + "/" + m.Code
 			span := m.Max - m.Min
 			v, exists := g.previous[key]
@@ -206,7 +201,7 @@ func (g *generator) makeReadings(s sensor, astronaut string) []reading {
 			}
 			g.previous[key] = v
 			r.ValueNumeric = &v
-		case "scale":
+		case model.ValueScale:
 			key := s.Device + "/" + astronaut + "/" + m.Code
 			v := m.Scale
 			if old, exists := g.previous[key]; exists {
@@ -219,7 +214,7 @@ func (g *generator) makeReadings(s sensor, astronaut string) []reading {
 			}
 			g.previous[key] = float64(v)
 			r.ValueScale = &v
-		case "image":
+		case model.ValueImage:
 			options := []string{"simulated normal ultrasound finding", "simulated stable ultrasound finding", "simulated follow-up ultrasound finding"}
 			v := options[g.rng.Intn(len(options))]
 			r.ValueText = &v

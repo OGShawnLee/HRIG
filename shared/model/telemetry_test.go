@@ -197,3 +197,125 @@ func assertRoundTrip[T any](t *testing.T, v T) {
 		t.Fatalf("round-trip mismatch for %T:\ngot:  %s\nwant: %s", v, string(b2), string(b))
 	}
 }
+
+func TestIngestDTOJSONContract(t *testing.T) {
+	now := time.Date(2026, 11, 15, 8, 20, 0, 0, time.UTC)
+	astro := "Ana Torres"
+	numVal := 101.3
+	scaleVal := 4
+	textVal := "simulated normal ultrasound finding"
+	kpaUnit := "kPa"
+	scoreUnit := "{score}"
+
+	fullReq := IngestRequest{
+		DeviceCode:    "biomonitor_01",
+		Environment:   EnvIVA,
+		RecordedAtUTC: now.Format(time.RFC3339Nano),
+		AstronautName: &astro,
+		Readings: []IngestReading{
+			{
+				MetricCode:   "cabin_pressure",
+				ValueNumeric: &numVal,
+				UnitCode:     &kpaUnit,
+			},
+			{
+				MetricCode: "mood",
+				ValueScale: &scaleVal,
+				UnitCode:   &scoreUnit,
+			},
+			{
+				MetricCode: "ultrasound",
+				ValueText:  &textVal,
+			},
+		},
+	}
+	assertRoundTrip(t, fullReq)
+
+	rawReq, err := json.Marshal(fullReq)
+	if err != nil {
+		t.Fatalf("marshal full IngestRequest: %v", err)
+	}
+	var reqMap map[string]any
+	if err := json.Unmarshal(rawReq, &reqMap); err != nil {
+		t.Fatalf("unmarshal IngestRequest map: %v", err)
+	}
+	for _, key := range []string{"device_code", "environment", "recorded_at_utc", "astronaut_name", "readings"} {
+		if _, ok := reqMap[key]; !ok {
+			t.Fatalf("expected wire key %q in IngestRequest JSON: %s", key, string(rawReq))
+		}
+	}
+
+	readingsSlice, ok := reqMap["readings"].([]any)
+	if !ok || len(readingsSlice) != 3 {
+		t.Fatalf("expected 3 readings in wire JSON, got %T", reqMap["readings"])
+	}
+	r0 := readingsSlice[0].(map[string]any)
+	for _, key := range []string{"metric_code", "value_numeric", "unit_code"} {
+		if _, ok := r0[key]; !ok {
+			t.Fatalf("expected wire key %q in numeric reading JSON", key)
+		}
+	}
+	r1 := readingsSlice[1].(map[string]any)
+	for _, key := range []string{"metric_code", "value_scale", "unit_code"} {
+		if _, ok := r1[key]; !ok {
+			t.Fatalf("expected wire key %q in scale reading JSON", key)
+		}
+	}
+	r2 := readingsSlice[2].(map[string]any)
+	for _, key := range []string{"metric_code", "value_text"} {
+		if _, ok := r2[key]; !ok {
+			t.Fatalf("expected wire key %q in text/image reading JSON", key)
+		}
+	}
+	if _, exists := r2["unit_code"]; exists {
+		t.Fatalf("expected nil unit_code to be omitted from wire JSON, got %s", string(rawReq))
+	}
+
+	envReq := IngestRequest{
+		DeviceCode:    "cabin_sensor_01",
+		Environment:   EnvEVA,
+		RecordedAtUTC: now.Format(time.RFC3339Nano),
+		Readings: []IngestReading{
+			{
+				MetricCode:   "cabin_pressure",
+				ValueNumeric: &numVal,
+				UnitCode:     &kpaUnit,
+			},
+		},
+	}
+	assertRoundTrip(t, envReq)
+
+	rawEnvReq, err := json.Marshal(envReq)
+	if err != nil {
+		t.Fatalf("marshal env IngestRequest: %v", err)
+	}
+	var envMap map[string]any
+	if err := json.Unmarshal(rawEnvReq, &envMap); err != nil {
+		t.Fatalf("unmarshal env IngestRequest map: %v", err)
+	}
+	if _, exists := envMap["astronaut_name"]; exists {
+		t.Fatalf("expected nil astronaut_name to be omitted from wire JSON, got %s", string(rawEnvReq))
+	}
+
+	res := IngestResult{
+		MeasurementID: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+		RecordedAtUTC: now,
+		ValuesCount:   3,
+	}
+	assertRoundTrip(t, res)
+
+	rawRes, err := json.Marshal(res)
+	if err != nil {
+		t.Fatalf("marshal IngestResult: %v", err)
+	}
+	var resMap map[string]any
+	if err := json.Unmarshal(rawRes, &resMap); err != nil {
+		t.Fatalf("unmarshal IngestResult map: %v", err)
+	}
+	for _, key := range []string{"measurement_id", "recorded_at_utc", "values_count"} {
+		if _, ok := resMap[key]; !ok {
+			t.Fatalf("expected wire key %q in IngestResult JSON: %s", key, string(rawRes))
+		}
+	}
+}
+

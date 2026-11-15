@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hrig/server/internal/db"
+	"hrig/shared/model"
 )
 
 type Service struct {
@@ -35,9 +36,16 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		return IngestResult{}, badRequest("device_code is required")
 	}
 
-	env := strings.TrimSpace(req.Environment)
-	if env != string(db.EnvironmentModeIva) && env != string(db.EnvironmentModeEva) {
+	env := model.EnvironmentMode(strings.TrimSpace(string(req.Environment)))
+	if !env.IsValid() {
 		return IngestResult{}, badRequest("environment must be 'iva' or 'eva'")
+	}
+	var dbEnv db.EnvironmentMode
+	switch env {
+	case model.EnvIVA:
+		dbEnv = db.EnvironmentModeIva
+	case model.EnvEVA:
+		dbEnv = db.EnvironmentModeEva
 	}
 
 	recordedAtStr := strings.TrimSpace(req.RecordedAtUTC)
@@ -110,7 +118,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 	meas, err := q.CreateMeasurement(ctx, db.CreateMeasurementParams{
 		AstronautID:   astronautID,
 		DeviceID:      device.ID,
-		Environment:   db.EnvironmentMode(env),
+		Environment:   dbEnv,
 		RecordedAtUtc: pgtype.Timestamptz{Time: recordedAt.UTC(), Valid: true},
 		Note:          nil,
 	})

@@ -3,30 +3,13 @@ package ingestion
 import (
 	"errors"
 	"net/http"
-	"time"
+
+	"hrig/shared/model"
 )
 
-type IngestRequest struct {
-	DeviceCode    string         `json:"device_code"`
-	Environment   string         `json:"environment"`
-	RecordedAtUTC string         `json:"recorded_at_utc"`
-	AstronautName *string        `json:"astronaut_name,omitempty"`
-	Readings      []ReadingInput `json:"readings"`
-}
-
-type ReadingInput struct {
-	MetricCode   string   `json:"metric_code"`
-	ValueNumeric *float64 `json:"value_numeric,omitempty"`
-	ValueScale   *int     `json:"value_scale,omitempty"`
-	ValueText    *string  `json:"value_text,omitempty"`
-	UnitCode     *string  `json:"unit_code,omitempty"`
-}
-
-type IngestResult struct {
-	MeasurementID string    `json:"measurement_id"`
-	RecordedAtUTC time.Time `json:"recorded_at_utc"`
-	ValuesCount   int       `json:"values_count"`
-}
+type IngestRequest = model.IngestRequest
+type ReadingInput = model.IngestReading
+type IngestResult = model.IngestResult
 
 type Error struct {
 	StatusCode int
