@@ -145,14 +145,14 @@ function statusLabel(status: TelemetryDisplayStatus): string {
             <circle cx="44" cy="40" r="16" fill="#1E293B" stroke="#94A3B8" stroke-width="1.5" />
           </svg>
           <span
-            class="absolute top-[29px] text-sm font-bold tracking-wide text-main"
+            class="absolute top-[1.8125rem] text-sm font-bold tracking-wide text-main"
           >
             {{ initials }}
           </span>
         </template>
         <span
           v-if="astronaut.nationalityCode"
-          class="absolute bottom-1.5 right-1.5 text-[10px] font-semibold tracking-wider px-1.5 py-0.5 rounded bg-ground/80 text-side border border-solid border-lineDim"
+          class="absolute bottom-1.5 right-1.5 text-[0.625rem] font-semibold tracking-wider px-1.5 py-0.5 rounded bg-ground/80 text-side border border-solid border-lineDim"
         >
           {{ astronaut.nationalityCode }}
         </span>

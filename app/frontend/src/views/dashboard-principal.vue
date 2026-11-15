@@ -251,6 +251,17 @@ function cardFrameClass(status: CardStatus): string {
   }
 }
 
+function silhouetteAlertClass(status: CardStatus): string {
+  switch (status) {
+    case ReadingStatus.StatusAbnormal:
+      return "body-alert-warn"
+    case ReadingStatus.StatusCritical:
+      return "body-alert-crit"
+    default:
+      return ""
+  }
+}
+
 function vitalChartStyles(
   nominalStroke: string,
   nominalFill: string,
@@ -740,18 +751,50 @@ interface VitalRow {
   fillClass: string
 }
 
-const vitalRows = computed<VitalRow[]>(() => {
+const cardStatuses = computed<
+  Record<"cardiac" | "oxygenation" | "pressure" | "radiation" | "temperature", CardStatus>
+>(() => {
   const id = resolvedAstronautId.value
 
+  const hrPrimary = formatNumericPart(id, "heart_rate", "72", "bpm").status
+  const spo2Primary = formatNumericPart(id, "spo2", "98%", "SpO2").status
+  const bpFormatted = id ? formatBloodPressure(id) : { display: "—", status: "unknown" as const }
+  const bpLive = bpFormatted.status !== "unknown" && bpFormatted.display !== "—"
+  const bpPrimary: CardStatus = bpLive ? bpFormatted.status : "fallback"
+  const radPrimary = formatNumericPart(id, "radiation_rate", "32", "µSv/h").status
+  const tempPrimary = formatNumericPart(id, "core_temp", "36.6", "°C").status
+
+  return {
+    cardiac: resolveCardStatus(id, hrPrimary, ["heart_rate", "hrv_rmssd"]),
+    oxygenation: resolveCardStatus(id, spo2Primary, ["spo2"], ["cabin_o2"]),
+    pressure: resolveCardStatus(
+      id,
+      bpPrimary,
+      ["bp_systolic", "bp_diastolic"],
+      ["cabin_pressure"],
+    ),
+    radiation: resolveCardStatus(id, radPrimary, ["radiation_rate", "radiation_dose_cum"]),
+    temperature: resolveCardStatus(id, tempPrimary, ["core_temp"], ["cabin_temp"]),
+  }
+})
+
+const vitalRows = computed<VitalRow[]>(() => {
+  const id = resolvedAstronautId.value
+  const {
+    cardiac: hrCardStatus,
+    oxygenation: spo2CardStatus,
+    pressure: bpCardStatus,
+    radiation: radCardStatus,
+    temperature: tempCardStatus,
+  } = cardStatuses.value
+
   const hr = formatNumericPart(id, "heart_rate", "72", "bpm")
-  const hrCardStatus = resolveCardStatus(id, hr.status, ["heart_rate", "hrv_rmssd"])
   const hrvSub = formatCrewSubLine(id, "hrv_rmssd", "HRV", "25 ms")
   const hrSeries = id ? getCrewSeries(id, "heart_rate") : []
   const hrChart = buildCardiacChart(hrSeries, liveReadingNumeric(id, "heart_rate", 72))
   const hrStyles = vitalChartStyles("stroke-ok", "fill-none", hrCardStatus)
 
   const spo2 = formatNumericPart(id, "spo2", "98%", "SpO2")
-  const spo2CardStatus = resolveCardStatus(id, spo2.status, ["spo2"], ["cabin_o2"])
   const cabinO2Sub = formatEnvLine("cabin_o2", "O2:", "20.9%")
   const spo2Series = id ? getCrewSeries(id, "spo2") : []
   const spo2Chart = buildOxygenationChart(spo2Series, liveReadingNumeric(id, "spo2", 98))
@@ -760,13 +803,6 @@ const vitalRows = computed<VitalRow[]>(() => {
   const bpFormatted = id ? formatBloodPressure(id) : { display: "—", status: "unknown" as const }
   const bpLive = bpFormatted.status !== "unknown" && bpFormatted.display !== "—"
   const bpValue = bpLive ? bpFormatted.display.replace(/\s*mmHg$/i, "") : "118/77"
-  const bpPrimaryStatus: CardStatus = bpLive ? bpFormatted.status : "fallback"
-  const bpCardStatus = resolveCardStatus(
-    id,
-    bpPrimaryStatus,
-    ["bp_systolic", "bp_diastolic"],
-    ["cabin_pressure"],
-  )
   const cabinPressureSub = formatEnvLine("cabin_pressure", "CABIN:", "101.3 kPa")
   const sysSeries = id ? getCrewSeries(id, "bp_systolic") : []
   const diaSeries = id ? getCrewSeries(id, "bp_diastolic") : []
@@ -779,17 +815,12 @@ const vitalRows = computed<VitalRow[]>(() => {
   const bpStyles = vitalChartStyles("stroke-main", "fill-none", bpCardStatus)
 
   const radRate = formatNumericPart(id, "radiation_rate", "32", "µSv/h")
-  const radCardStatus = resolveCardStatus(id, radRate.status, [
-    "radiation_rate",
-    "radiation_dose_cum",
-  ])
   const radCumSub = formatCrewSubLine(id, "radiation_dose_cum", "TOTAL", "1.2 mSv")
   const radSeries = id ? getCrewSeries(id, "radiation_rate") : []
   const radChart = buildRadiationChart(radSeries, liveReadingNumeric(id, "radiation_rate", 32))
   const radStyles = vitalChartStyles("stroke-warn", "fill-warn/20", radCardStatus)
 
   const coreTemp = formatNumericPart(id, "core_temp", "36.6", "°C")
-  const tempCardStatus = resolveCardStatus(id, coreTemp.status, ["core_temp"], ["cabin_temp"])
   const cabinTempSub = formatEnvLine("cabin_temp", "CABIN", "22.0°C")
   const tempSeries = id ? getCrewSeries(id, "core_temp") : []
   const tempChart = buildTemperatureChart(tempSeries, liveReadingNumeric(id, "core_temp", 36.6))
@@ -911,16 +942,16 @@ const vitalRows = computed<VitalRow[]>(() => {
       </div>
     </header>
 
-    <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-[1fr_200px] gap-6 items-start">
+    <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_13rem] gap-6 items-start">
       <section class="flex flex-col gap-3 min-w-0" aria-label="Primary vital signs">
         <article
           v-for="row in vitalRows"
           :key="row.id"
-          class="hud-card overflow-hidden grid grid-cols-[minmax(0,1fr)_140px_36px] sm:grid-cols-[minmax(0,1fr)_168px_44px] min-h-22"
+          class="hud-card overflow-hidden grid grid-cols-[minmax(0,1fr)_9.5rem_2.25rem] sm:grid-cols-[minmax(0,1fr)_11.5rem_2.75rem] min-h-22"
           :class="cardFrameClass(row.status)"
         >
           <div class="bg-surface border-r border-solid border-lineDim flex flex-col justify-between min-w-0">
-            <div class="px-3 pt-2 flex items-center justify-between gap-2 text-[11px] font-bold tracking-wider">
+            <div class="px-3 pt-2 flex items-center justify-between gap-2 text-[0.6875rem] font-bold tracking-wider">
               <div class="flex items-center gap-2 min-w-0">
                 <h2 :class="statusTextClass(row.status)" class="truncate">{{ row.title }}</h2>
                 <span
@@ -932,7 +963,7 @@ const vitalRows = computed<VitalRow[]>(() => {
                 </span>
               </div>
               <span
-                class="text-[10px] font-medium hud-value tabular-nums shrink-0"
+                class="text-[0.625rem] font-medium hud-value tabular-nums shrink-0"
                 :class="cardSecondaryTextClass(row.status, 'text-dull')"
               >
                 {{ row.rangeLabel }}
@@ -959,20 +990,20 @@ const vitalRows = computed<VitalRow[]>(() => {
 
           <div class="px-3 py-2 flex flex-col justify-between hud-value min-w-0">
             <div
-              class="flex items-baseline justify-between gap-1 text-[11px] font-semibold"
+              class="flex items-baseline justify-between gap-1 text-[0.6875rem] font-semibold"
               :class="cardSecondaryTextClass(row.status, 'text-side')"
             >
               <span class="truncate">{{ row.subtitle === "BP" ? "BP" : "" }}</span>
               <span>{{ row.unit }}</span>
             </div>
             <strong
-              class="text-2xl sm:text-3xl font-bold leading-none truncate"
+              class="text-2xl sm:text-[1.75rem] font-bold leading-none whitespace-nowrap"
               :class="statusTextClass(row.status)"
             >
               {{ row.value }}
             </strong>
             <small
-              class="text-[11px] font-semibold truncate"
+              class="text-[0.6875rem] font-semibold truncate"
               :class="cardSecondaryTextClass(row.status, 'text-side')"
             >
               {{ row.subline }}
@@ -1000,14 +1031,48 @@ const vitalRows = computed<VitalRow[]>(() => {
         >
           <g class="fill-surface stroke-main" stroke-width="2.5">
             <path
+              :class="silhouetteAlertClass(cardStatuses.radiation)"
               d="M68 12h30l10 10 4 29-10 22-8 8 19 13 16 8 4 57 13 29-9 20-11-6-5-26-8-23 4 55-4 41-12 68-11 4-5-7 4-64-7-34-7 34 4 64-6 7-11-4-12-68-4-41 5-55-9 23-5 26-11 6-9-20 13-29 4-57 16-8 19-13-8-8-10-22 4-29 10-10Z"
             />
-            <path d="M68 12h30l10 10-2 24-7 25-21 10-21-10-7-25-2-24 10-10Z" />
+            <path
+              :class="silhouetteAlertClass(cardStatuses.temperature) || silhouetteAlertClass(cardStatuses.radiation)"
+              d="M68 12h30l10 10-2 24-7 25-21 10-21-10-7-25-2-24 10-10Z"
+            />
           </g>
           <g fill="none" class="stroke-side" stroke-width="1.5">
             <path
+              class="silhouette-wire"
+              :class="silhouetteAlertClass(cardStatuses.radiation)"
               d="M60 81l-15 18-8 58-17 29 8 20 13-6 7-27 11-24M100 81l15 18 8 58 17 29-8 20-13-6-7-27-11-24M51 181l8 54-4 41 12 68M109 181l-8 54 4 41-12 68M53 98h54M50 154h60M53 205h54M58 236h44"
             />
+          </g>
+          <g
+            class="silhouette-organ"
+            :class="silhouetteAlertClass(cardStatuses.oxygenation)"
+            stroke-width="1.4"
+            stroke-linejoin="round"
+          >
+            <polygon points="57,118 61,102 73,96 77,108 76,133 68,139 59,134" />
+            <polygon points="87,96 99,102 103,118 101,134 92,139 84,133 83,108" />
+            <path class="silhouette-wire" d="M80 84v17l-7 8M80 101l7 8" stroke-linecap="round" />
+          </g>
+          <g
+            class="silhouette-organ"
+            :class="silhouetteAlertClass(cardStatuses.pressure)"
+            stroke-width="1.4"
+            stroke-linejoin="round"
+          >
+            <polygon points="34,114 51,114 49,136 34,136" />
+            <polygon points="115,114 132,114 132,136 117,136" />
+            <polygon points="54,142 106,142 108,151 52,151" />
+          </g>
+          <g
+            class="silhouette-organ"
+            :class="silhouetteAlertClass(cardStatuses.cardiac)"
+            stroke-width="1.5"
+            stroke-linejoin="round"
+          >
+            <polygon points="77,112 82,107 86,111 91,107 96,112 94,119 85,129 78,119" />
           </g>
         </svg>
 
@@ -1068,5 +1133,54 @@ const vitalRows = computed<VitalRow[]>(() => {
 .vital-text-crit {
   color: #f87171;
   animation: vital-text-blink-crit 0.65s ease-in-out infinite;
+}
+
+.silhouette-organ {
+  fill: rgba(212, 212, 216, 0.04);
+  stroke: rgba(156, 163, 175, 0.35);
+}
+
+.silhouette-wire {
+  fill: none !important;
+}
+
+@keyframes body-blink-warn {
+  0%,
+  100% {
+    fill: rgba(250, 204, 21, 0.48);
+    stroke: #facc15;
+    filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.85));
+  }
+  50% {
+    fill: rgba(250, 204, 21, 0.1);
+    stroke: rgba(250, 204, 21, 0.45);
+    filter: drop-shadow(0 0 1px rgba(250, 204, 21, 0.2));
+  }
+}
+
+@keyframes body-blink-crit {
+  0%,
+  100% {
+    fill: rgba(248, 113, 113, 0.58);
+    stroke: #f87171;
+    filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.95));
+  }
+  50% {
+    fill: rgba(248, 113, 113, 0.12);
+    stroke: rgba(248, 113, 113, 0.45);
+    filter: drop-shadow(0 0 1px rgba(248, 113, 113, 0.2));
+  }
+}
+
+.body-alert-warn {
+  fill: rgba(250, 204, 21, 0.48);
+  stroke: #facc15;
+  animation: body-blink-warn 1.2s ease-in-out infinite;
+}
+
+.body-alert-crit {
+  fill: rgba(248, 113, 113, 0.58);
+  stroke: #f87171;
+  animation: body-blink-crit 0.65s ease-in-out infinite;
 }
 </style>
