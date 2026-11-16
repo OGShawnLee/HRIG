@@ -68,6 +68,7 @@ Keyboard-first search across crew vitals, spaceflight hazards, metrics, and offl
 - [`db/README.md`](db/README.md) — PostgreSQL schema (`001_schema.sql`), catalog seeds (`002_seed.sql`), and 3-day demo dataset (`003_demo_seed.sql`).
 
 ### Planning & Ground Rules (`.routing/`)
+- [`.routing/ARCHITECTURE.md`](.routing/ARCHITECTURE.md) — End-to-end system architecture and data flow (sensors, Go server, PostgreSQL, Wails v3, Vue 3 HUD).
 - [`.routing/PROGRESS.md`](.routing/PROGRESS.md) — Current tasks, completed milestones, and upcoming work.
 - [`.routing/CONTEXT.md`](.routing/CONTEXT.md) — Ground rules (Conventional Commits in English) and file map.
 - [`.routing/SPECIFICATION.md`](.routing/SPECIFICATION.md) — Functional (`RF`) and non-functional (`RNF`) requirements *(maintained in Spanish until final delivery)*.

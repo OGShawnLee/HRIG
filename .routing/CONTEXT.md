@@ -3,6 +3,7 @@
 ## Files
 
 - [`CONTEXT.md`](CONTEXT.md) — Project context, ground rules, and index of `.routing` files.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — End-to-end system architecture and data flow from sensors and manual check-ins to the Vue 3 HUD.
 - [`INPUT.md`](INPUT.md) — NASA hackathon challenge prompt, objectives, hazards overview, and radiation monitoring notes.
 - [`DOMAIN.md`](DOMAIN.md) — Ubiquitous Language glossary defining core domain concepts, metric tiers, severity states, and clinical roles.
 - [`SPECIFICATION.md`](SPECIFICATION.md) — Refined software functional (`RF01`–`RF16`) and non-functional (`RNF01`–`RNF12`) requirements in Spanish until final delivery.
