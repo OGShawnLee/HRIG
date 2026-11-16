@@ -99,3 +99,4 @@ See [`.routing/ARCHITECTURE.md`](.routing/ARCHITECTURE.md) for the full componen
 - Add menstrual cycle tracking
 - Test in real-world scenarios
 - Incorporate real measurement devices
+- Implement a metric translation system to facilitate the integration of additional measurement devices.
