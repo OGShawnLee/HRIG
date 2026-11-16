@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import {
   Activity,
+  ArrowLeft,
   CalendarClock,
   HelpCircle,
   Home,
@@ -71,6 +72,7 @@ const {
   selectedAstronautId,
   lastTriggeredAlert,
   setSelectedAstronaut,
+  openPrimaryVitals,
   goToHome,
 } = useTelemetryNavigation()
 
@@ -126,7 +128,7 @@ function onAstronautSelect(event: Event) {
   const found = crewPool.value.find((a) => a.id === nextId)
   setSelectedAstronaut(nextId, found?.fullName)
   void router.replace({
-    name: "secondary-stats",
+    name: "other-stats",
     query: { ...route.query, astronaut: nextId },
   })
 }
@@ -1178,7 +1180,7 @@ function clearFilters() {
 <template>
   <main
     class="flex-1 w-full bg-ground text-main px-4 sm:px-8 py-6 flex flex-col items-center gap-6"
-    aria-label="Secondary Statistics Dashboard"
+    aria-label="Other Stats Dashboard"
   >
     <!-- Top Controls Bar -->
     <header class="w-full max-w-5xl flex flex-wrap items-center gap-3">
@@ -1192,8 +1194,18 @@ function clearFilters() {
         <span>Home</span>
       </button>
 
+      <button
+        type="button"
+        class="button-side h-10 px-3 text-xs gap-1.5 shrink-0"
+        aria-label="Return to Primary Vitals for selected astronaut"
+        @click="openPrimaryVitals(activeAstronaut ?? resolvedAstronautId)"
+      >
+        <ArrowLeft class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <span>Primary Vitals</span>
+      </button>
+
       <h1 class="text-lg sm:text-xl font-semibold tracking-wide text-main shrink-0">
-        SECONDARY STATS
+        OTHER STATS
       </h1>
 
       <div v-if="crewPool.length > 0" class="shrink-0">
@@ -1221,8 +1233,8 @@ function clearFilters() {
         <input
           v-model="metricFilter"
           type="text"
-          aria-label="Filter secondary metrics"
-          placeholder="Search secondary metrics"
+          aria-label="Filter other metrics"
+          placeholder="Search other stats metrics"
           class="field w-full h-10 pl-9 pr-3 text-sm"
         />
       </div>
@@ -1666,7 +1678,7 @@ function clearFilters() {
       class="w-full max-w-5xl hud-card p-8 flex flex-col items-center justify-center gap-3 text-center"
     >
       <p class="text-sm font-medium text-side">
-        No secondary metrics match the current filter.
+        No other stats metrics match the current filter.
       </p>
       <button
         type="button"

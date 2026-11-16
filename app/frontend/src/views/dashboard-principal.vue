@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
-import { AlertCircle, AlertTriangle, HelpCircle, Home, Search, WifiOff } from "lucide-vue-next"
+import { Activity, AlertCircle, AlertTriangle, HelpCircle, Home, Search, WifiOff } from "lucide-vue-next"
 import { ReadingStatus, type AlertEvent } from "@bindings/hrig/shared/model/models.js"
 import {
   useTelemetry,
@@ -43,6 +43,7 @@ const {
   selectedAstronautFallbackName,
   lastTriggeredAlert,
   setSelectedAstronaut,
+  openOtherStats,
   goToHome,
 } = useTelemetryNavigation()
 
@@ -988,6 +989,16 @@ const vitalRows = computed<VitalRow[]>(() => {
           class="field w-full h-10 pl-9 pr-3 text-sm"
         />
       </div>
+
+      <button
+        type="button"
+        class="button-side h-10 px-3.5 text-xs gap-1.5 shrink-0 border-line text-main"
+        aria-label="Open Other Stats for selected astronaut"
+        @click="openOtherStats(activeAstronaut ?? resolvedAstronautId)"
+      >
+        <Activity class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <span>Other Stats</span>
+      </button>
     </header>
 
     <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_13rem] gap-6 items-start">

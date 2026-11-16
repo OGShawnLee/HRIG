@@ -25,7 +25,7 @@ export const lastTriggeredAlert = ref<AlertDispatchPayload | null>(null)
 export const previousNonAlertPath = ref<string | null>(null)
 
 const ALERT_ROUTE_NAMES = new Set<string>(["support-alert", "warning-alert"])
-const NON_ALERT_ROUTE_NAMES = new Set<string>(["home", "search", "dashboard-principal", "secondary-stats"])
+const NON_ALERT_ROUTE_NAMES = new Set<string>(["home", "search", "dashboard-principal", "other-stats"])
 
 const STATUS_RANK: Record<NavReadingStatus, number> = {
   normal: 0,
@@ -115,7 +115,7 @@ function openPrimaryVitalsWithRouter(
   }
 }
 
-function openSecondaryStatsWithRouter(
+function openOtherStatsWithRouter(
   router: Router | null,
   astronaut?: { id: string; fullName?: string } | string,
 ): void {
@@ -133,15 +133,17 @@ function openSecondaryStatsWithRouter(
   const targetRouter = resolveRouter(router)
   if (targetRouter) {
     void targetRouter.push({
-      name: "secondary-stats",
+      name: "other-stats",
       query: id ? { astronaut: id } : undefined,
     })
   }
 }
 
-export function openSecondaryStats(astronaut?: { id: string; fullName?: string } | string): void {
-  openSecondaryStatsWithRouter(null, astronaut)
+export function openOtherStats(astronaut?: { id: string; fullName?: string } | string): void {
+  openOtherStatsWithRouter(null, astronaut)
 }
+
+export const openSecondaryStats = openOtherStats
 
 function goToHomeWithRouter(router: Router | null): void {
   suppressCurrentEpisode()
@@ -304,8 +306,10 @@ export function useTelemetryNavigation() {
     setSelectedAstronaut,
     openPrimaryVitals: (astronaut: { id: string; fullName?: string } | string) =>
       openPrimaryVitalsWithRouter(router, astronaut),
+    openOtherStats: (astronaut?: { id: string; fullName?: string } | string) =>
+      openOtherStatsWithRouter(router, astronaut),
     openSecondaryStats: (astronaut?: { id: string; fullName?: string } | string) =>
-      openSecondaryStatsWithRouter(router, astronaut),
+      openOtherStatsWithRouter(router, astronaut),
     goToHome: () => goToHomeWithRouter(router),
     openActiveAlert: () => openActiveAlertWithRouter(router),
     closeActiveAlert: () => closeActiveAlertWithRouter(router),
