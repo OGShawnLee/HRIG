@@ -59,6 +59,15 @@ Keyboard-first search across crew vitals, spaceflight hazards, metrics, and offl
 
 ![Omnibox Medical Procedure Checklist](docs/screenshots/08-omnibox-procedure.png)
 
+## Why This Stack
+
+- **Go Everywhere (API Server, Simulator, Shared Contracts & App Bridge):** Lightweight, easy to work with, robust (Google-backed), and highly portable—every backend component compiles down to self-contained native binaries and shares the exact same typed domain models (`shared/model/`).
+- **Wails v3 (Desktop Shell):** Keeps **complete data safety** end-to-end by pairing Go directly with auto-generated TypeScript bindings, integrates seamlessly without shipping a heavy bundled Chromium runtime (using the OS WebView instead), and stays compact enough for constrained mission environments.
+- **Web Stack — Vue 3, TypeScript, Vite & UnoCSS (UI):** Fast to iterate on and widely understood, making it ideal for crafting a calm, responsive clinical HUD, custom SVG waveforms, and keyboard-first medical workflows.
+- **PostgreSQL → Planned Migration to Embedded libSQL:** PostgreSQL gives us a rock-solid, open-source relational store for time-series telemetry, thresholds, and medical catalogs. However, because it runs as an external server rather than an embedded engine, it is currently our biggest portability bottleneck—**the bundled demo only runs on Windows** due to packaging the local PostgreSQL binaries. Migrating to an embeddable database like **libSQL** removes that external dependency so the entire app runs natively on **any platform (Windows, macOS, Linux)** while storing telemetry locally and **syncing back to Houston** whenever a link is available.
+
+See [`.routing/ARCHITECTURE.md`](.routing/ARCHITECTURE.md) for the full component & data-flow diagram.
+
 ## Repository Navigation
 
 ### Core Project Docs
