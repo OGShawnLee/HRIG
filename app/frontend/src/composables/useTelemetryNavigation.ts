@@ -25,7 +25,7 @@ export const lastTriggeredAlert = ref<AlertDispatchPayload | null>(null)
 export const previousNonAlertPath = ref<string | null>(null)
 
 const ALERT_ROUTE_NAMES = new Set<string>(["support-alert", "warning-alert"])
-const NON_ALERT_ROUTE_NAMES = new Set<string>(["home", "search", "dashboard-principal"])
+const NON_ALERT_ROUTE_NAMES = new Set<string>(["home", "search", "dashboard-principal", "secondary-stats"])
 
 const STATUS_RANK: Record<NavReadingStatus, number> = {
   normal: 0,
@@ -113,6 +113,34 @@ function openPrimaryVitalsWithRouter(
       query: { astronaut: id },
     })
   }
+}
+
+function openSecondaryStatsWithRouter(
+  router: Router | null,
+  astronaut?: { id: string; fullName?: string } | string,
+): void {
+  suppressCurrentEpisode()
+
+  let id: string | undefined
+  if (astronaut !== undefined) {
+    id = typeof astronaut === "string" ? astronaut : astronaut.id
+    const fullName = typeof astronaut === "string" ? undefined : astronaut.fullName
+    setSelectedAstronaut(id, fullName)
+  } else if (selectedAstronautId.value.trim() !== "") {
+    id = selectedAstronautId.value.trim()
+  }
+
+  const targetRouter = resolveRouter(router)
+  if (targetRouter) {
+    void targetRouter.push({
+      name: "secondary-stats",
+      query: id ? { astronaut: id } : undefined,
+    })
+  }
+}
+
+export function openSecondaryStats(astronaut?: { id: string; fullName?: string } | string): void {
+  openSecondaryStatsWithRouter(null, astronaut)
 }
 
 function goToHomeWithRouter(router: Router | null): void {
@@ -276,6 +304,8 @@ export function useTelemetryNavigation() {
     setSelectedAstronaut,
     openPrimaryVitals: (astronaut: { id: string; fullName?: string } | string) =>
       openPrimaryVitalsWithRouter(router, astronaut),
+    openSecondaryStats: (astronaut?: { id: string; fullName?: string } | string) =>
+      openSecondaryStatsWithRouter(router, astronaut),
     goToHome: () => goToHomeWithRouter(router),
     openActiveAlert: () => openActiveAlertWithRouter(router),
     closeActiveAlert: () => closeActiveAlertWithRouter(router),

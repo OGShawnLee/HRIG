@@ -42,5 +42,13 @@ const route = useRoute()
     >
       <span>Primary Vitals</span>
     </RouterLink>
+
+    <RouterLink
+      :to="{ name: 'secondary-stats' }"
+      class="button-side h-9 px-3 text-xs gap-1.5"
+      :class="{ 'bg-surface border-line text-main ring-1 ring-line': route.name === 'secondary-stats' }"
+    >
+      <span>Secondary Stats</span>
+    </RouterLink>
   </nav>
 </template>

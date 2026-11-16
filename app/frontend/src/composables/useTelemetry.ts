@@ -556,6 +556,10 @@ export function getCrewSeries(astronautId: string, metricCode: string): Telemetr
   return seriesByKey.value[readingKey(astronautId, metricCode)] ?? []
 }
 
+export function getEnvSeries(metricCode: string): TelemetrySeriesPoint[] {
+  return seriesByKey.value[readingKey(null, metricCode)] ?? []
+}
+
 export async function loadMetricTrends(
   astronautId: string,
   metricCode: string,
@@ -700,6 +704,7 @@ export function useTelemetry() {
     getCrewReading,
     getEnvReading,
     getCrewSeries,
+    getEnvSeries,
     resolveReadingStatus,
     formatMetricValue,
     formatBloodPressure,
