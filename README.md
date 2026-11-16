@@ -92,3 +92,10 @@ See [`.routing/ARCHITECTURE.md`](.routing/ARCHITECTURE.md) for the full componen
 - [`router`](.claude/skills/router/SKILL.md) — Project coordination, grounding, and ticket dispatch workflow.
 - [`ticket`](.claude/skills/ticket/SKILL.md) — Specification format for `.tickets/` tasks and binary verification checks.
 - [`venture-killer`](.claude/skills/venture-killer/SKILL.md) — Scope creep and feasibility audit rules.
+
+
+## NEXT STEPS 
+
+- Add menstrual cycle tracking
+- Test in real-world scenarios
+- Incorporate real measurement devices
