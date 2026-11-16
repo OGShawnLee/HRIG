@@ -22,6 +22,7 @@ The console window prints the address of the **sensor simulator control panel** 
 ## Troubleshooting
 
 - **Windows SmartScreen warning** ("Windows protected your PC") — click *More info* → *Run anyway*. The files are unsigned.
+- **"The user canceled the operation" / "El usuario ha cancelado la operación"** — Windows blocked the unsigned app because the ZIP was downloaded from the internet. Close the window, open PowerShell in the HRIG folder and run `Get-ChildItem -Recurse | Unblock-File`, then launch again. (Or: right-click the ZIP → Properties → tick *Unblock* → OK, and unzip again.) Current versions of `Start-HRIG.bat` do this automatically.
 - **The launcher prints an error, or the window never appears** — read the console text and the log files in `%LOCALAPPDATA%\HRIG\logs` (`postgres.log`, `server.err.log`, `bot.err.log`, `migrate.log.err`).
 - **Missing `VCRUNTIME140.dll` / `MSVCP140.dll`** — install the Microsoft Visual C++ 2015–2022 Redistributable (x64) and run again.
 - **Start fresh** — close HRIG, delete the folder `%LOCALAPPDATA%\HRIG`, and launch again.

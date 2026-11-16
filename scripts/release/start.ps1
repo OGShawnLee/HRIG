@@ -59,6 +59,11 @@ try {
         if (-not (Test-Path $f)) { throw "Missing file: $f  (did the ZIP extract completely?)" }
     }
 
+    # Files from a downloaded ZIP carry a "Mark of the Web" that makes Windows show a security prompt
+    # when the unsigned app starts. Remove it from everything in this folder (harmless if absent).
+    Say 'Preparing files...'
+    try { Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue } catch {}
+
     Say 'Cleaning leftovers from a previous run (if any)...'
     Get-Process -Name 'hrig-server', 'hrig-bot', 'hrig' -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -and $_.Path.StartsWith($Root, [System.StringComparison]::OrdinalIgnoreCase) } |
@@ -155,8 +160,13 @@ try {
     Write-Host ("  Sensor simulator control panel (inject anomalies / disconnect sensors):  http://127.0.0.1:" + $BotPort) -ForegroundColor Green
     Write-Host '  Close the HRIG window to stop everything.' -ForegroundColor Green
     Write-Host ''
-    $appProc = Start-Process -FilePath $App -WorkingDirectory $RunDir -PassThru
-    Wait-Process -Id $appProc.Id
+    # CreateProcess (UseShellExecute=false) instead of the shell launch path: no security-prompt dialog.
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $App
+    $psi.WorkingDirectory = $RunDir
+    $psi.UseShellExecute = $false
+    $appProc = [System.Diagnostics.Process]::Start($psi)
+    $appProc.WaitForExit()
     Say 'HRIG window closed.'
 }
 catch {
