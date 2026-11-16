@@ -4,6 +4,22 @@
 
 Inspired by the **RIG** concept from *Dead Space*—an at-a-glance, body-integrated health and status system—this project adapts that core idea into a pragmatic, calm, clinical software prototype achievable within a 2-day hackathon using current technology.
 
+## Download & Run (Final Build)
+
+A ready-to-run build is available on Google Drive: **[Download HRIG](https://drive.google.com/drive/folders/1XcnnlVJJ8UJOVGlGV63UX1m0bWlpzGiM?usp=sharing)**
+
+1. Download the ZIP from the Drive folder and unzip it (a short path such as `C:\HRIG` works best).
+2. Double-click **`Start-HRIG.bat`**.
+3. Wait for the HRIG window to open. The first launch can take 1–2 minutes while the local database is created; later launches are much faster.
+4. Close the HRIG window to stop everything.
+
+Everything is bundled (database, API server, sensor simulator, and desktop app), so nothing needs to be installed and no admin rights are required.
+
+> **Platform support:** this build runs on **Windows 10/11 (64-bit) only** for now (the Microsoft Edge WebView2 Runtime is required and comes preinstalled on Windows 11). macOS and Linux packages are planned.
+> **Windows SmartScreen:** the files are unsigned, so Windows may warn on first launch. Click *More info* → *Run anyway*.
+
+See `README-JUDGES.md` inside the ZIP for the sensor simulator control panel and troubleshooting.
+
 ## Challenge & Objective
 
 Long-duration missions expose crews to NASA's five hazards of human spaceflight (**Space Radiation**, **Isolation and Confinement**, **Distance from Earth**, **Gravity Fields**, and **Hostile/Closed Environments**).
