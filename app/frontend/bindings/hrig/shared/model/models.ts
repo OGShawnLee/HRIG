@@ -304,6 +304,107 @@ export class HistoryQuery {
 }
 
 /**
+ * IngestReading represents a single metric reading inside a POST / ingestion request.
+ */
+export class IngestReading {
+    "metric_code": string;
+    "value_numeric"?: number | null;
+    "value_scale"?: number | null;
+    "value_text"?: string | null;
+    "unit_code"?: string | null;
+
+    /** Creates a new IngestReading instance. */
+    constructor($$source: Partial<IngestReading> = {}) {
+        if (!("metric_code" in $$source)) {
+            this["metric_code"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IngestReading instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IngestReading {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new IngestReading($$parsedSource as Partial<IngestReading>);
+    }
+}
+
+/**
+ * IngestRequest represents a device measurement session payload posted to POST /.
+ */
+export class IngestRequest {
+    "device_code": string;
+    "environment": EnvironmentMode;
+    "recorded_at_utc": string;
+    "astronaut_name"?: string | null;
+    "readings": IngestReading[];
+
+    /** Creates a new IngestRequest instance. */
+    constructor($$source: Partial<IngestRequest> = {}) {
+        if (!("device_code" in $$source)) {
+            this["device_code"] = "";
+        }
+        if (!("environment" in $$source)) {
+            this["environment"] = EnvironmentMode.$zero;
+        }
+        if (!("recorded_at_utc" in $$source)) {
+            this["recorded_at_utc"] = "";
+        }
+        if (!("readings" in $$source)) {
+            this["readings"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IngestRequest instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IngestRequest {
+        const $$createField4_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("readings" in $$parsedSource) {
+            $$parsedSource["readings"] = $$createField4_0($$parsedSource["readings"]);
+        }
+        return new IngestRequest($$parsedSource as Partial<IngestRequest>);
+    }
+}
+
+/**
+ * IngestResult represents the 201 Created response returned by POST /.
+ */
+export class IngestResult {
+    "measurement_id": string;
+    "recorded_at_utc": string;
+    "values_count": number;
+
+    /** Creates a new IngestResult instance. */
+    constructor($$source: Partial<IngestResult> = {}) {
+        if (!("measurement_id" in $$source)) {
+            this["measurement_id"] = "";
+        }
+        if (!("recorded_at_utc" in $$source)) {
+            this["recorded_at_utc"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("values_count" in $$source)) {
+            this["values_count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IngestResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IngestResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new IngestResult($$parsedSource as Partial<IngestResult>);
+    }
+}
+
+/**
  * LatestReading pairs a TelemetryFrame with live stream freshness metadata (RNF10).
  */
 export class LatestReading {
@@ -466,12 +567,12 @@ export class MedicalProcedure {
      * Creates a new MedicalProcedure instance from a string or object.
      */
     static createFrom($$source: any = {}): MedicalProcedure {
-        const $$createField10_0 = $$createType0;
-        const $$createField11_0 = $$createType0;
-        const $$createField12_0 = $$createType0;
-        const $$createField13_0 = $$createType0;
-        const $$createField14_0 = $$createType0;
-        const $$createField15_0 = $$createType0;
+        const $$createField10_0 = $$createType2;
+        const $$createField11_0 = $$createType2;
+        const $$createField12_0 = $$createType2;
+        const $$createField13_0 = $$createType2;
+        const $$createField14_0 = $$createType2;
+        const $$createField15_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("equipment" in $$parsedSource) {
             $$parsedSource["equipment"] = $$createField10_0($$parsedSource["equipment"]);
@@ -556,7 +657,7 @@ export class Metric {
      * Creates a new Metric instance from a string or object.
      */
     static createFrom($$source: any = {}): Metric {
-        const $$createField18_0 = $$createType2;
+        const $$createField18_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("threshold" in $$parsedSource) {
             $$parsedSource["threshold"] = $$createField18_0($$parsedSource["threshold"]);
@@ -667,10 +768,10 @@ export class RealtimeEnvelope {
      * Creates a new RealtimeEnvelope instance from a string or object.
      */
     static createFrom($$source: any = {}): RealtimeEnvelope {
-        const $$createField1_0 = $$createType4;
-        const $$createField2_0 = $$createType6;
-        const $$createField3_0 = $$createType7;
-        const $$createField4_0 = $$createType8;
+        const $$createField1_0 = $$createType6;
+        const $$createField2_0 = $$createType8;
+        const $$createField3_0 = $$createType9;
+        const $$createField4_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("readings" in $$parsedSource) {
             $$parsedSource["readings"] = $$createField1_0($$parsedSource["readings"]);
@@ -727,10 +828,10 @@ export class SearchResults {
      * Creates a new SearchResults instance from a string or object.
      */
     static createFrom($$source: any = {}): SearchResults {
-        const $$createField2_0 = $$createType10;
-        const $$createField3_0 = $$createType12;
-        const $$createField4_0 = $$createType14;
-        const $$createField5_0 = $$createType16;
+        const $$createField2_0 = $$createType12;
+        const $$createField3_0 = $$createType14;
+        const $$createField4_0 = $$createType16;
+        const $$createField5_0 = $$createType18;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("astronauts" in $$parsedSource) {
             $$parsedSource["astronauts"] = $$createField2_0($$parsedSource["astronauts"]);
@@ -775,8 +876,8 @@ export class Snapshot {
      * Creates a new Snapshot instance from a string or object.
      */
     static createFrom($$source: any = {}): Snapshot {
-        const $$createField0_0 = $$createType4;
-        const $$createField1_0 = $$createType6;
+        const $$createField0_0 = $$createType6;
+        const $$createField1_0 = $$createType8;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("readings" in $$parsedSource) {
             $$parsedSource["readings"] = $$createField0_0($$parsedSource["readings"]);
@@ -835,7 +936,7 @@ export class SpaceHazard {
      * Creates a new SpaceHazard instance from a string or object.
      */
     static createFrom($$source: any = {}): SpaceHazard {
-        const $$createField5_0 = $$createType0;
+        const $$createField5_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("relatedMetricCodes" in $$parsedSource) {
             $$parsedSource["relatedMetricCodes"] = $$createField5_0($$parsedSource["relatedMetricCodes"]);
@@ -951,20 +1052,22 @@ export enum ValueType {
 };
 
 // Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = MetricThreshold.createFrom;
-const $$createType2 = $Create.Nullable($$createType1);
-const $$createType3 = LatestReading.createFrom;
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = AlertEvent.createFrom;
+const $$createType0 = IngestReading.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $Create.Array($Create.Any);
+const $$createType3 = MetricThreshold.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = LatestReading.createFrom;
 const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = $Create.Nullable($$createType3);
-const $$createType8 = $Create.Nullable($$createType5);
-const $$createType9 = Astronaut.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = MedicalProcedure.createFrom;
+const $$createType7 = AlertEvent.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = $Create.Nullable($$createType5);
+const $$createType10 = $Create.Nullable($$createType7);
+const $$createType11 = Astronaut.createFrom;
 const $$createType12 = $Create.Array($$createType11);
-const $$createType13 = SpaceHazard.createFrom;
+const $$createType13 = MedicalProcedure.createFrom;
 const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = Metric.createFrom;
+const $$createType15 = SpaceHazard.createFrom;
 const $$createType16 = $Create.Array($$createType15);
+const $$createType17 = Metric.createFrom;
+const $$createType18 = $Create.Array($$createType17);

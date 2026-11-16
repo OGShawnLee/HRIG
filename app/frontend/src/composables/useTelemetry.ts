@@ -7,13 +7,13 @@ import {
   GetMetrics,
   GetSnapshot,
   GetTrends,
-  IngestReading,
-  IngestRequest,
   SubmitCheckin,
 } from "@bindings/hrig/app/app.js"
 import { ConnectionState } from "@bindings/hrig/app/models.js"
 import {
   EnvironmentMode,
+  IngestReading,
+  IngestRequest,
   ReadingStatus,
   TrendQuery,
   type AlertEvent,
