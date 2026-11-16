@@ -26,6 +26,39 @@ Long-duration missions expose crews to NASA's five hazards of human spaceflight 
 
 Resource Integration Gear provides an offline-first interface that gathers key health indicators, visualizes status clearly (including an interactive anatomical figure), and gives non-physician astronauts actionable guidance to prevent and respond to health risks.
 
+## Interface Showcase
+
+### Crew Overview & Environment
+At-a-glance status for every crew member, cabin environment telemetry, quick access to the Medical Manual, and the global `Ctrl+K` Omnibox.
+
+![Crew Overview](docs/screenshots/01-crew-overview.png)
+
+### Primary Vitals HUD
+Real-time waveforms for cardiac rhythm, oxygenation, blood pressure, radiation exposure, and body temperature paired with an interactive anatomical wireframe.
+
+![Primary Vitals](docs/screenshots/02-primary-vitals.png)
+
+### Other Stats & Periodic Daily Check-ins
+Secondary continuous streams (respiratory rate, HRV, blood glucose, cabin ppCO2, EVA suit pressure, cumulative radiation) alongside daily crew check-ins, lab assays, and imaging logs.
+
+![Other Stats](docs/screenshots/03-other-stats.png)
+
+![Periodic & Daily Check-ins](docs/screenshots/04-periodic-checkins.png)
+
+### Caution / Support Alerts & Anatomical Highlighting
+Abnormal readings surface clear, actionable medical guidance and highlight affected telemetry cards and body regions directly on the Primary Vitals HUD.
+
+![Caution Support Alert](docs/screenshots/05-support-alert.png)
+
+![Caution Highlight on Primary Vitals](docs/screenshots/06-primary-vitals-caution.png)
+
+### Medical & Crew Omnibox (`Ctrl+K`)
+Keyboard-first search across crew vitals, spaceflight hazards, metrics, and offline medical procedure checklists.
+
+![Omnibox Search](docs/screenshots/07-omnibox-search.png)
+
+![Omnibox Medical Procedure Checklist](docs/screenshots/08-omnibox-procedure.png)
+
 ## Repository Navigation
 
 ### Core Project Docs
