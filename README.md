@@ -6,7 +6,7 @@ Inspired by the **RIG** concept from *Dead Space*—an at-a-glance, body-integra
 
 ## Download & Run (Final Build)
 
-A ready-to-run build is available on Google Drive: **[Download HRIG](https://drive.google.com/drive/folders/1XcnnlVJJ8UJOVGlGV63UX1m0bWlpzGiM?usp=sharing)**
+A ready-to-run build is available on Google Drive: **[Download HRIG](https://drive.google.com/drive/folders/1KA3qHV0NSGztI8T6moCz_jxkgiJuYPOj?usp=sharing)**
 
 1. Download the ZIP from the Drive folder and unzip it (a short path such as `C:\HRIG` works best).
 2. Double-click **`Start-HRIG.bat`**.
