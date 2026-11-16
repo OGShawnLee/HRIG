@@ -66,9 +66,13 @@ watch(
   { immediate: true },
 )
 
+const crewPool = computed(() =>
+  activeAstronauts.value.length > 0 ? activeAstronauts.value : astronauts.value,
+)
+
 const activeAstronaut = computed(() => {
   const targetId = selectedAstronautId.value.trim()
-  const pool = activeAstronauts.value.length > 0 ? activeAstronauts.value : astronauts.value
+  const pool = crewPool.value
   if (targetId) {
     const exact = pool.find((a) => a.id === targetId)
     if (exact) {
@@ -87,6 +91,20 @@ const resolvedAstronautId = computed(() => activeAstronaut.value?.id ?? selected
 const selectedAstronautName = computed(
   () => activeAstronaut.value?.fullName ?? selectedAstronautFallbackName.value,
 )
+
+function onAstronautSelect(event: Event) {
+  const select = event.target as HTMLSelectElement
+  const nextId = select.value.trim()
+  if (!nextId) {
+    return
+  }
+  const found = crewPool.value.find((a) => a.id === nextId)
+  setSelectedAstronaut(nextId, found?.fullName)
+  void router.replace({
+    name: "dashboard-principal",
+    query: { ...route.query, astronaut: nextId },
+  })
+}
 
 watch(
   resolvedAstronautId,
@@ -978,6 +996,26 @@ const vitalRows = computed<VitalRow[]>(() => {
       <h1 class="text-lg sm:text-xl font-semibold tracking-wide text-main shrink-0">
         PRIMARY VITALS
       </h1>
+
+      <div v-if="crewPool.length > 0" class="shrink-0">
+        <label class="sr-only" for="primary-crew-select">Select crew member</label>
+        <select
+          id="primary-crew-select"
+          :value="resolvedAstronautId"
+          aria-label="Select crew member"
+          class="field h-10 px-3 text-xs sm:text-sm min-w-40 cursor-pointer"
+          @change="onAstronautSelect"
+        >
+          <option
+            v-for="astro in crewPool"
+            :key="astro.id"
+            :value="astro.id"
+            class="bg-ground text-main"
+          >
+            {{ astro.fullName }}
+          </option>
+        </select>
+      </div>
 
       <div class="relative flex-1 min-w-44 flex items-center">
         <Search class="w-4 h-4 text-side absolute left-3 pointer-events-none" aria-hidden="true" />
