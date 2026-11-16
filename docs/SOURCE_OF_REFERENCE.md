@@ -1,10 +1,3 @@
-Bibliographic Sources -- HRIG and Astronaut Health
-Format: source title, page or location, and plain-text URL (not a
-Markdown hyperlink). Note: "No page number" means the source is a
-webpage or that the document's pagination has not been verified. Page
-ranges referring to PARAMETROS SETH.pdf identify locations in the
-user's local document, not pages in the external sources.
-
 1. Menstruation
 Abnormal Uterine Bleeding -- American College of Obstetricians and
 Gynecologists (ACOG)
