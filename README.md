@@ -1,4 +1,4 @@
-# HRIG — Resource Integration Gear
+# HRIG — Health Resource Integration Gear
 
 **Resource Integration Gear (HRIG)** is a NASA hackathon project for building visual, self-assessment health monitoring software for astronauts on long-duration space missions.
 
