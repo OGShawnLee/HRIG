@@ -123,3 +123,48 @@ Packages the desktop window (`1280×820`, frameless) in [`app/main.go`](../app/m
    Astronaut logs sleep/mood/hydration/weight in `/other-stats` → Vue calls `submitCrewDailyMetric` → Wails `SubmitCheckin` sends `POST /` (`device_code: "manual_checkin"`) → `server` stores in PostgreSQL & broadcasts via `Hub` → pending yellow dot clears on `Home` & `Other Stats`.
 4. **Medical Manual / Omnibox Lookup (`Ctrl+K`)**  
    User searches `"eye"` or `"oxygen"` in `SearchView.vue` → Wails `SearchAll` queries `GET /api/search` against `space_hazards`, `medical_procedures`, and `astronauts` → renders inline checklists or live per-member metric comparisons.
+
+---
+
+## System Deployment Description
+
+![HRIG Deployment Diagram](.routing/HRIG-FullDeploymentDiagram.png)
+
+The diagram models HRIG's physical and logical deployment, distinguishing the hardware currently available from the Earth-transmission infrastructure, whose specific standard is still to be determined.
+
+### Devices (`«device»`)
+
+- **Laptop (Spacecraft):** physical equipment aboard the spacecraft/habitat where the entire HRIG application runs during the mission.
+- **Smartwatch:** real wearable device that collects the astronaut's health data and sends it to the server via HTTP/HTTPS.
+- **NASA Mission Control Center (Earth):** external node on Earth that receives and processes the records synced from the spacecraft.
+
+### Execution Environments (`«executionEnvironment»`)
+
+- **Windows/Linux:** operating system on which the HRIG desktop application runs inside the Laptop.
+- **PostgreSQL Container:** execution environment hosting the local `HRIG Database`.
+
+### Main Components
+
+- **HRIG Desktop Application:** application package that bundles the graphical interface and, optionally, a sensor simulator for testing.
+  - *Sensor Simulator (optional):* component used only for demos or testing when no physical device (smartwatch) is available; it is not part of the production flow.
+  - *Vue 3 / Wails Graphical Interface:* clinical interface the astronaut uses to view their vital signs and log manual check-ins.
+- **Go API Server:** the application's central backend. It receives health data (from the smartwatch or the simulator) over HTTP/HTTPS, persists it to PostgreSQL, serves the interface via local communication, and hands off pending records to the sync module.
+- **Ground Sync Module:** component responsible for preparing and transmitting accumulated records to Earth, using the appropriate space protocol. It operates asynchronously relative to the rest of the system.
+- **HRIG Database:** local PostgreSQL database with two logical tables:
+  - *Records Pending Transmission:* records not yet confirmed as received by Mission Control.
+  - *Health Measurements:* historical record of the crew's health measurements.
+- **Data Reception and Processing:** component at NASA's Mission Control Center responsible for receiving and processing the data transmitted from the spacecraft.
+
+### Communications
+
+- **Local Communication:** internal channel between the graphical interface and the Go API Server within the same process/machine.
+- **«HTTP/HTTPS» Health Data:** channel through which the Smartwatch sends health data to the Go API Server.
+- **«PostgreSQL Protocol» Read and Write:** persistence channel between the Go API Server and the database.
+- **Records for Transmission:** internal flow of records from the Go API Server to the Ground Sync Module.
+- **«CCSDS» Standard TBD (Space Packet / CFDP):** space communication link between the Ground Sync Module and Mission Control on Earth. The specific standard within the CCSDS family (e.g., Space Packet Protocol or CFDP) will be defined based on the communication infrastructure actually available at mission time.
+
+### Operational Considerations
+
+- **Offline operation:** HRIG continues to function normally even without a link to Earth; records accumulate locally and are transmitted as soon as the link is restored (store-and-forward pattern).
+- **Local storage:** all measurements and records pending transmission are kept in the local database, ensuring no data is lost during communication outages.
+- **CCSDS standard selection pending:** which variant of the CCSDS standard will be used is deliberately left open, since it depends on the actual space link infrastructure available, and is not a decision that falls within the scope of the current prototype.
