@@ -97,3 +97,9 @@ tasks:
   db:sqlc:
     cmds:
       - sqlc generate
+
+  release:build:
+    summary: Build the judge-ready package into dist/HRIG (then ZIP that folder)
+    platforms: [windows]
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release.ps1
