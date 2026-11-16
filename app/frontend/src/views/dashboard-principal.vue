@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
-import { AlertCircle, AlertTriangle, HelpCircle, Home, Search } from "lucide-vue-next"
+import { AlertCircle, AlertTriangle, HelpCircle, Home, Search, WifiOff } from "lucide-vue-next"
 import { ReadingStatus, type AlertEvent } from "@bindings/hrig/shared/model/models.js"
 import {
   useTelemetry,
@@ -235,6 +235,8 @@ function cardSecondaryTextClass(status: CardStatus, nominalClass: string): strin
       return "text-warn"
     case ReadingStatus.StatusCritical:
       return "text-crit vital-text-crit"
+    case ReadingStatus.StatusStale:
+      return "text-stale"
     default:
       return nominalClass
   }
@@ -246,6 +248,8 @@ function cardFrameClass(status: CardStatus): string {
       return "border-2 border-warn vital-frame-warn"
     case ReadingStatus.StatusCritical:
       return "border-2 border-crit vital-frame-crit"
+    case ReadingStatus.StatusStale:
+      return "border-2 border-dashed border-stale/75 opacity-85"
     default:
       return ""
   }
@@ -715,6 +719,9 @@ function formatEnvLine(
   const reading = getEnvReading(metricCode)
   const metric = metricsByCode.value[metricCode]
   const formatted = formatMetricValue(reading, metric)
+  if (formatted.status === ReadingStatus.StatusStale) {
+    return `${prefix}${spaceBeforeValue ? " " : ""}NO SIGNAL`
+  }
   if (formatted.status === "unknown" || formatted.display === "—") {
     return `${prefix}${spaceBeforeValue ? " " : ""}${fallbackDisplay}`
   }
@@ -730,10 +737,24 @@ function formatCrewSubLine(
   const reading = astronautId ? getCrewReading(astronautId, metricCode) : undefined
   const metric = metricsByCode.value[metricCode]
   const formatted = formatMetricValue(reading, metric)
+  if (formatted.status === ReadingStatus.StatusStale) {
+    return `${prefix} NO SIGNAL`
+  }
   if (formatted.status === "unknown" || formatted.display === "—") {
     return `${prefix} ${fallbackDisplay}`
   }
   return `${prefix} ${formatted.display}`
+}
+
+function isCrewMetricStale(astronautId: string, metricCode: string): boolean {
+  return (
+    Boolean(astronautId) &&
+    resolveReadingStatus(getCrewReading(astronautId, metricCode)) === ReadingStatus.StatusStale
+  )
+}
+
+function isEnvMetricStale(metricCode: string): boolean {
+  return resolveReadingStatus(getEnvReading(metricCode)) === ReadingStatus.StatusStale
 }
 
 interface VitalRow {
@@ -745,6 +766,8 @@ interface VitalRow {
   unit: string
   subline: string
   status: CardStatus
+  isDisconnected: boolean
+  isSublineDisconnected: boolean
   rangeLabel: string
   chart: ChartWaveData
   strokeClass: string
@@ -789,12 +812,14 @@ const vitalRows = computed<VitalRow[]>(() => {
   } = cardStatuses.value
 
   const hr = formatNumericPart(id, "heart_rate", "72", "bpm")
+  const hrDisconnected = isCrewMetricStale(id, "heart_rate")
   const hrvSub = formatCrewSubLine(id, "hrv_rmssd", "HRV", "25 ms")
   const hrSeries = id ? getCrewSeries(id, "heart_rate") : []
   const hrChart = buildCardiacChart(hrSeries, liveReadingNumeric(id, "heart_rate", 72))
   const hrStyles = vitalChartStyles("stroke-ok", "fill-none", hrCardStatus)
 
   const spo2 = formatNumericPart(id, "spo2", "98%", "SpO2")
+  const spo2Disconnected = isCrewMetricStale(id, "spo2")
   const cabinO2Sub = formatEnvLine("cabin_o2", "O2:", "20.9%")
   const spo2Series = id ? getCrewSeries(id, "spo2") : []
   const spo2Chart = buildOxygenationChart(spo2Series, liveReadingNumeric(id, "spo2", 98))
@@ -802,6 +827,7 @@ const vitalRows = computed<VitalRow[]>(() => {
 
   const bpFormatted = id ? formatBloodPressure(id) : { display: "—", status: "unknown" as const }
   const bpLive = bpFormatted.status !== "unknown" && bpFormatted.display !== "—"
+  const bpDisconnected = bpFormatted.status === ReadingStatus.StatusStale
   const bpValue = bpLive ? bpFormatted.display.replace(/\s*mmHg$/i, "") : "118/77"
   const cabinPressureSub = formatEnvLine("cabin_pressure", "CABIN:", "101.3 kPa")
   const sysSeries = id ? getCrewSeries(id, "bp_systolic") : []
@@ -815,12 +841,14 @@ const vitalRows = computed<VitalRow[]>(() => {
   const bpStyles = vitalChartStyles("stroke-main", "fill-none", bpCardStatus)
 
   const radRate = formatNumericPart(id, "radiation_rate", "32", "µSv/h")
+  const radDisconnected = isCrewMetricStale(id, "radiation_rate")
   const radCumSub = formatCrewSubLine(id, "radiation_dose_cum", "TOTAL", "1.2 mSv")
   const radSeries = id ? getCrewSeries(id, "radiation_rate") : []
   const radChart = buildRadiationChart(radSeries, liveReadingNumeric(id, "radiation_rate", 32))
   const radStyles = vitalChartStyles("stroke-warn", "fill-warn/20", radCardStatus)
 
   const coreTemp = formatNumericPart(id, "core_temp", "36.6", "°C")
+  const tempDisconnected = isCrewMetricStale(id, "core_temp")
   const cabinTempSub = formatEnvLine("cabin_temp", "CABIN", "22.0°C")
   const tempSeries = id ? getCrewSeries(id, "core_temp") : []
   const tempChart = buildTemperatureChart(tempSeries, liveReadingNumeric(id, "core_temp", 36.6))
@@ -831,11 +859,15 @@ const vitalRows = computed<VitalRow[]>(() => {
       id: "cardiac",
       title: "CARDIAC RHYTHM",
       manualQuery: "heart_rate",
-      value: hr.value,
+      value: hrDisconnected ? "—" : hr.value,
       unit: hr.unit,
       subline: hrvSub,
       status: hrCardStatus,
-      rangeLabel: formatRangeLabel(hrChart.minVal, hrChart.maxVal, "heart_rate", hr.unit),
+      isDisconnected: hrDisconnected,
+      isSublineDisconnected: isCrewMetricStale(id, "hrv_rmssd"),
+      rangeLabel: hrDisconnected
+        ? "NO SIGNAL"
+        : formatRangeLabel(hrChart.minVal, hrChart.maxVal, "heart_rate", hr.unit),
       chart: hrChart,
       strokeClass: hrStyles.stroke,
       fillClass: hrStyles.fill,
@@ -844,11 +876,15 @@ const vitalRows = computed<VitalRow[]>(() => {
       id: "oxygenation",
       title: "OXYGENATION",
       manualQuery: "spo2",
-      value: spo2.value,
+      value: spo2Disconnected ? "—" : spo2.value,
       unit: spo2.unit,
       subline: cabinO2Sub,
       status: spo2CardStatus,
-      rangeLabel: formatRangeLabel(spo2Chart.minVal, spo2Chart.maxVal, "spo2", "%"),
+      isDisconnected: spo2Disconnected,
+      isSublineDisconnected: isEnvMetricStale("cabin_o2"),
+      rangeLabel: spo2Disconnected
+        ? "NO SIGNAL"
+        : formatRangeLabel(spo2Chart.minVal, spo2Chart.maxVal, "spo2", "%"),
       chart: spo2Chart,
       strokeClass: spo2Styles.stroke,
       fillClass: spo2Styles.fill,
@@ -858,11 +894,15 @@ const vitalRows = computed<VitalRow[]>(() => {
       title: "PRESSURE",
       subtitle: "BP",
       manualQuery: "pressure",
-      value: bpValue,
+      value: bpDisconnected ? "—" : bpValue,
       unit: "mmHg",
       subline: cabinPressureSub,
       status: bpCardStatus,
-      rangeLabel: formatRangeLabel(bpChart.minVal, bpChart.maxVal, "bp_systolic", "mmHg"),
+      isDisconnected: bpDisconnected,
+      isSublineDisconnected: isEnvMetricStale("cabin_pressure"),
+      rangeLabel: bpDisconnected
+        ? "NO SIGNAL"
+        : formatRangeLabel(bpChart.minVal, bpChart.maxVal, "bp_systolic", "mmHg"),
       chart: bpChart,
       strokeClass: bpStyles.stroke,
       fillClass: bpStyles.fill,
@@ -872,11 +912,15 @@ const vitalRows = computed<VitalRow[]>(() => {
       title: "RADIATION",
       subtitle: "SENSOR",
       manualQuery: "radiation",
-      value: radRate.value,
+      value: radDisconnected ? "—" : radRate.value,
       unit: radRate.unit,
       subline: radCumSub,
       status: radCardStatus,
-      rangeLabel: formatRangeLabel(radChart.minVal, radChart.maxVal, "radiation_rate", radRate.unit),
+      isDisconnected: radDisconnected,
+      isSublineDisconnected: isCrewMetricStale(id, "radiation_dose_cum"),
+      rangeLabel: radDisconnected
+        ? "NO SIGNAL"
+        : formatRangeLabel(radChart.minVal, radChart.maxVal, "radiation_rate", radRate.unit),
       chart: radChart,
       strokeClass: radStyles.stroke,
       fillClass: radStyles.fill,
@@ -886,11 +930,15 @@ const vitalRows = computed<VitalRow[]>(() => {
       title: "TEMPERATURE",
       subtitle: "BODY",
       manualQuery: "core_temp",
-      value: coreTemp.value,
+      value: tempDisconnected ? "—" : coreTemp.value,
       unit: coreTemp.unit,
       subline: cabinTempSub,
       status: tempCardStatus,
-      rangeLabel: formatRangeLabel(tempChart.minVal, tempChart.maxVal, "core_temp", coreTemp.unit),
+      isDisconnected: tempDisconnected,
+      isSublineDisconnected: isEnvMetricStale("cabin_temp"),
+      rangeLabel: tempDisconnected
+        ? "NO SIGNAL"
+        : formatRangeLabel(tempChart.minVal, tempChart.maxVal, "core_temp", coreTemp.unit),
       chart: tempChart,
       strokeClass: tempStyles.stroke,
       fillClass: tempStyles.fill,
@@ -964,49 +1012,84 @@ const vitalRows = computed<VitalRow[]>(() => {
               </div>
               <span
                 class="text-[0.625rem] font-medium hud-value tabular-nums shrink-0"
-                :class="cardSecondaryTextClass(row.status, 'text-dull')"
+                :class="row.isDisconnected ? 'text-stale' : cardSecondaryTextClass(row.status, 'text-dull')"
               >
                 {{ row.rangeLabel }}
               </span>
             </div>
-            <svg viewBox="0 0 300 64" preserveAspectRatio="none" class="w-full h-14 px-1" aria-hidden="true">
-              <path
-                v-if="row.chart.fillPath"
-                :d="row.chart.fillPath"
-                class="stroke-none"
-                :class="row.fillClass"
-              />
-              <path
-                :d="row.chart.wavePath"
-                fill="none"
-                stroke-width="2"
-                stroke-linecap="round"
-                :stroke-linejoin="row.id === 'radiation' ? 'miter' : 'round'"
-                vector-effect="non-scaling-stroke"
-                :class="row.strokeClass"
-              />
-            </svg>
+            <div class="relative w-full h-14 px-1">
+              <svg viewBox="0 0 300 64" preserveAspectRatio="none" class="w-full h-full" aria-hidden="true">
+                <line
+                  v-if="row.isDisconnected"
+                  x1="0"
+                  y1="32"
+                  x2="300"
+                  y2="32"
+                  stroke-dasharray="6 5"
+                  stroke-width="2"
+                  vector-effect="non-scaling-stroke"
+                  class="stroke-stale/60"
+                />
+                <template v-else>
+                  <path
+                    v-if="row.chart.fillPath"
+                    :d="row.chart.fillPath"
+                    class="stroke-none"
+                    :class="row.fillClass"
+                  />
+                  <path
+                    :d="row.chart.wavePath"
+                    fill="none"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    :stroke-linejoin="row.id === 'radiation' ? 'miter' : 'round'"
+                    vector-effect="non-scaling-stroke"
+                    :class="row.strokeClass"
+                  />
+                </template>
+              </svg>
+              <div
+                v-if="row.isDisconnected"
+                class="absolute inset-0 flex items-center justify-center pointer-events-none px-2"
+              >
+                <span
+                  class="inline-flex items-center gap-1.5 max-w-full px-2.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-stale border border-dashed border-stale/75 bg-ground/90 rounded-md"
+                >
+                  <WifiOff class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span class="truncate">Sensor Disconnected · No Signal</span>
+                </span>
+              </div>
+            </div>
           </div>
 
           <div class="px-3 py-2 flex flex-col justify-between hud-value min-w-0">
             <div
               class="flex items-baseline justify-between gap-1 text-[0.6875rem] font-semibold"
-              :class="cardSecondaryTextClass(row.status, 'text-side')"
+              :class="row.isDisconnected ? 'text-stale' : cardSecondaryTextClass(row.status, 'text-side')"
             >
               <span class="truncate">{{ row.subtitle === "BP" ? "BP" : "" }}</span>
               <span>{{ row.unit }}</span>
             </div>
             <strong
               class="text-2xl sm:text-[1.75rem] font-bold leading-none whitespace-nowrap"
-              :class="statusTextClass(row.status)"
+              :class="row.isDisconnected ? 'text-stale' : statusTextClass(row.status)"
             >
-              {{ row.value }}
+              {{ row.isDisconnected ? "—" : row.value }}
             </strong>
             <small
-              class="text-[0.6875rem] font-semibold truncate"
-              :class="cardSecondaryTextClass(row.status, 'text-side')"
+              class="text-[0.6875rem] font-semibold inline-flex items-center gap-1 min-w-0"
+              :class="
+                row.isDisconnected || row.isSublineDisconnected
+                  ? 'text-stale'
+                  : cardSecondaryTextClass(row.status, 'text-side')
+              "
             >
-              {{ row.subline }}
+              <WifiOff
+                v-if="row.isDisconnected || row.isSublineDisconnected"
+                class="w-3 h-3 shrink-0"
+                aria-hidden="true"
+              />
+              <span class="truncate">{{ row.isDisconnected ? "NO SIGNAL" : row.subline }}</span>
             </small>
           </div>
 
