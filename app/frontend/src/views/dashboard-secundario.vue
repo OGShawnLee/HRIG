@@ -17,6 +17,7 @@ import {
 } from "@bindings/hrig/shared/model/models.js"
 import {
   useTelemetry,
+  type DailyCheckinMetricCode,
   type TelemetryDisplayStatus,
   type TelemetrySeriesPoint,
 } from "@/composables/useTelemetry"
@@ -67,6 +68,10 @@ const {
   getEnvSeries,
   resolveReadingStatus,
   formatMetricValue,
+  isDailyMetricLoggedToday,
+  getPendingDailyMetrics,
+  hasPendingDailyCheckin,
+  submitCrewDailyMetric,
 } = useTelemetry()
 const {
   selectedAstronautId,
@@ -119,6 +124,73 @@ const activeAstronaut = computed(() => {
 
 const resolvedAstronautId = computed(() => activeAstronaut.value?.id ?? selectedAstronautId.value)
 
+const hasPendingCheckinForSelected = computed(() =>
+  resolvedAstronautId.value ? hasPendingDailyCheckin(resolvedAstronautId.value) : false,
+)
+
+const pendingCheckinSummaryLabel = computed(() => {
+  if (!resolvedAstronautId.value) {
+    return ""
+  }
+  const remaining = getPendingDailyMetrics(resolvedAstronautId.value).length
+  return `Pending daily check-in (${remaining} remaining)`
+})
+
+const checkinDrafts = ref<Record<DailyCheckinMetricCode, string>>({
+  sleep_hours: "7.5",
+  mood: "4",
+  hydration_intake: "2200",
+  body_mass: "72.0",
+})
+const submittingMetric = ref<Record<string, boolean>>({})
+const checkinFeedback = ref<Record<string, string>>({})
+
+function syncCheckinDrafts(astronautId: string) {
+  const cleanId = astronautId.trim()
+  if (!cleanId) {
+    return
+  }
+  const sleep = getCrewReading(cleanId, "sleep_hours")?.valueNumeric
+  const mood = getCrewReading(cleanId, "mood")?.valueScale
+  const hyd = getCrewReading(cleanId, "hydration_intake")?.valueNumeric
+  const mass = getCrewReading(cleanId, "body_mass")?.valueNumeric
+
+  checkinDrafts.value = {
+    sleep_hours: sleep !== null && sleep !== undefined && Number.isFinite(sleep) ? sleep.toFixed(1) : "7.5",
+    mood: mood !== null && mood !== undefined && Number.isFinite(mood) ? String(mood) : "4",
+    hydration_intake: hyd !== null && hyd !== undefined && Number.isFinite(hyd) ? String(Math.round(hyd)) : "2200",
+    body_mass: mass !== null && mass !== undefined && Number.isFinite(mass) ? mass.toFixed(1) : "72.0",
+  }
+}
+
+async function handleDailyMetricSubmit(metricCode: DailyCheckinMetricCode, explicitValue?: number) {
+  const astro = activeAstronaut.value
+  if (!astro || submittingMetric.value[metricCode]) {
+    return
+  }
+  const raw = explicitValue !== undefined ? explicitValue : Number(checkinDrafts.value[metricCode])
+  if (!Number.isFinite(raw)) {
+    checkinFeedback.value = { ...checkinFeedback.value, [metricCode]: "Invalid number" }
+    return
+  }
+  submittingMetric.value = { ...submittingMetric.value, [metricCode]: true }
+  checkinFeedback.value = { ...checkinFeedback.value, [metricCode]: "" }
+  try {
+    await submitCrewDailyMetric(astro, metricCode, raw)
+    if (explicitValue !== undefined) {
+      checkinDrafts.value = { ...checkinDrafts.value, [metricCode]: String(explicitValue) }
+    }
+    checkinFeedback.value = { ...checkinFeedback.value, [metricCode]: "Saved" }
+  } catch (err) {
+    checkinFeedback.value = {
+      ...checkinFeedback.value,
+      [metricCode]: err instanceof Error ? err.message : "Failed to save",
+    }
+  } finally {
+    submittingMetric.value = { ...submittingMetric.value, [metricCode]: false }
+  }
+}
+
 function onAstronautSelect(event: Event) {
   const select = event.target as HTMLSelectElement
   const nextId = select.value.trim()
@@ -152,6 +224,7 @@ function loadEnvironmentalSecondaryTrends() {
 watch(
   resolvedAstronautId,
   (astronautId) => {
+    syncCheckinDrafts(astronautId)
     loadCrewSecondaryTrends(astronautId)
   },
   { immediate: true },
@@ -959,6 +1032,11 @@ interface PeriodicCardRow {
   lastRecorded: string
   status: CardStatus
   isDisconnected: boolean
+  isSelfReported?: boolean
+  isLoggedToday?: boolean
+  inputMin?: string
+  inputMax?: string
+  inputStep?: string
   bars?: CheckpointBar[]
   dualBars?: DualBarPair[]
   moodScore?: number | null
@@ -967,38 +1045,92 @@ interface PeriodicCardRow {
   qualitativeLabel?: string
 }
 
+function formatSelfReportedReadout(
+  reading: LatestReading | undefined,
+  metricCode: DailyCheckinMetricCode,
+  fallbackUnit: string,
+): {
+  value: string
+  unit: string
+  status: CardStatus
+} {
+  const metric = metricsByCode.value[metricCode]
+  const unit = metric?.displayUnitSymbol ?? metric?.baseUnitSymbol ?? reading?.unitCode ?? fallbackUnit
+  if (!reading) {
+    return {
+      value: "—",
+      unit: unit === "%" ? "" : unit,
+      status: ReadingStatus.StatusNormal,
+    }
+  }
+  const rawStatus = resolveReadingStatus(reading)
+  const status: CardStatus =
+    rawStatus === ReadingStatus.StatusCritical || rawStatus === ReadingStatus.StatusAbnormal
+      ? rawStatus
+      : ReadingStatus.StatusNormal
+
+  let valueOnly = "—"
+  if (
+    reading.valueNumeric !== null &&
+    reading.valueNumeric !== undefined &&
+    Number.isFinite(reading.valueNumeric)
+  ) {
+    valueOnly = reading.valueNumeric.toFixed(metric?.baseUnitDecimals ?? 0)
+  } else if (reading.valueScale !== null && reading.valueScale !== undefined) {
+    valueOnly = String(reading.valueScale)
+  }
+
+  return {
+    value: valueOnly,
+    unit: unit === "%" ? "" : unit,
+    status,
+  }
+}
+
 const periodicRows = computed<PeriodicCardRow[]>(() => {
   const id = resolvedAstronautId.value
 
-  // 1. Sleep hours
+  // 1. Sleep hours (astronaut manual daily check-in)
   const sleepReading = id ? getCrewReading(id, "sleep_hours") : undefined
-  const sleepOut = formatReadout(sleepReading, "sleep_hours", "h")
-  const sleepStatus = resolveCardStatus(id, sleepOut.status, ["sleep_hours"])
+  const sleepLoggedToday = id ? isDailyMetricLoggedToday(id, "sleep_hours") : false
+  const sleepOut = formatSelfReportedReadout(sleepReading, "sleep_hours", "h")
+  const sleepRawCardStatus = resolveCardStatus(id, sleepOut.status, ["sleep_hours"])
+  const sleepStatus: CardStatus =
+    sleepRawCardStatus === ReadingStatus.StatusStale ? sleepOut.status : sleepRawCardStatus
   const sleepSeries = id ? getCrewSeries(id, "sleep_hours") : []
   const sleepChart = buildCheckpointBars(sleepSeries, 4, 11, "fill-ok/75")
 
-  // 2. Mood scale (1-5)
+  // 2. Mood scale (1-5, astronaut manual daily check-in)
   const moodReading = id ? getCrewReading(id, "mood") : undefined
-  const moodOut = formatReadout(moodReading, "mood", "/ 5")
-  const moodStatus = resolveCardStatus(id, moodOut.status, ["mood"])
+  const moodLoggedToday = id ? isDailyMetricLoggedToday(id, "mood") : false
+  const moodOut = formatSelfReportedReadout(moodReading, "mood", "/ 5")
+  const moodRawCardStatus = resolveCardStatus(id, moodOut.status, ["mood"])
+  const moodStatus: CardStatus =
+    moodRawCardStatus === ReadingStatus.StatusStale ? moodOut.status : moodRawCardStatus
   const rawMood =
     moodReading?.valueScale ??
     (moodReading?.valueNumeric !== null && moodReading?.valueNumeric !== undefined
       ? Math.round(moodReading.valueNumeric)
       : null)
-  const moodScore = !moodOut.isDisconnected && rawMood !== null ? clamp(rawMood, 1, 5) : null
+  const moodScore = rawMood !== null ? clamp(rawMood, 1, 5) : null
 
-  // 3. Hydration intake
+  // 3. Hydration intake (astronaut manual daily check-in)
   const hydReading = id ? getCrewReading(id, "hydration_intake") : undefined
-  const hydOut = formatReadout(hydReading, "hydration_intake", "mL")
-  const hydStatus = resolveCardStatus(id, hydOut.status, ["hydration_intake"])
+  const hydLoggedToday = id ? isDailyMetricLoggedToday(id, "hydration_intake") : false
+  const hydOut = formatSelfReportedReadout(hydReading, "hydration_intake", "mL")
+  const hydRawCardStatus = resolveCardStatus(id, hydOut.status, ["hydration_intake"])
+  const hydStatus: CardStatus =
+    hydRawCardStatus === ReadingStatus.StatusStale ? hydOut.status : hydRawCardStatus
   const hydSeries = id ? getCrewSeries(id, "hydration_intake") : []
   const hydChart = buildCheckpointBars(hydSeries, 500, 4000, "fill-ok/75")
 
-  // 4. Body mass
+  // 4. Body mass (astronaut manual daily check-in)
   const massReading = id ? getCrewReading(id, "body_mass") : undefined
-  const massOut = formatReadout(massReading, "body_mass", "kg")
-  const massStatus = resolveCardStatus(id, massOut.status, ["body_mass"])
+  const massLoggedToday = id ? isDailyMetricLoggedToday(id, "body_mass") : false
+  const massOut = formatSelfReportedReadout(massReading, "body_mass", "kg")
+  const massRawCardStatus = resolveCardStatus(id, massOut.status, ["body_mass"])
+  const massStatus: CardStatus =
+    massRawCardStatus === ReadingStatus.StatusStale ? massOut.status : massRawCardStatus
   const massSeries = id ? getCrewSeries(id, "body_mass") : []
   const massChart = buildCheckpointBars(massSeries, 40, 115, "fill-main/75")
 
@@ -1056,9 +1188,14 @@ const periodicRows = computed<PeriodicCardRow[]>(() => {
       keywords: "sleep_hours rest fatigue circadian daily",
       value: sleepOut.value,
       unit: sleepOut.unit,
-      lastRecorded: sleepOut.isDisconnected ? "NO SIGNAL" : formatLastRecorded(sleepReading),
+      lastRecorded: sleepLoggedToday ? formatLastRecorded(sleepReading) : "PENDING TODAY",
       status: sleepStatus,
-      isDisconnected: sleepOut.isDisconnected,
+      isDisconnected: false,
+      isSelfReported: true,
+      isLoggedToday: sleepLoggedToday,
+      inputMin: "0",
+      inputMax: "16",
+      inputStep: "0.5",
       bars: sleepChart.bars,
     },
     {
@@ -1071,9 +1208,11 @@ const periodicRows = computed<PeriodicCardRow[]>(() => {
       keywords: "mood behavioral psychological isolation scale score",
       value: moodOut.value,
       unit: "/ 5",
-      lastRecorded: moodOut.isDisconnected ? "NO SIGNAL" : formatLastRecorded(moodReading),
+      lastRecorded: moodLoggedToday ? formatLastRecorded(moodReading) : "PENDING TODAY",
       status: moodStatus,
-      isDisconnected: moodOut.isDisconnected,
+      isDisconnected: false,
+      isSelfReported: true,
+      isLoggedToday: moodLoggedToday,
       moodScore,
     },
     {
@@ -1086,9 +1225,14 @@ const periodicRows = computed<PeriodicCardRow[]>(() => {
       keywords: "hydration_intake fluid water intake ml",
       value: hydOut.value,
       unit: hydOut.unit,
-      lastRecorded: hydOut.isDisconnected ? "NO SIGNAL" : formatLastRecorded(hydReading),
+      lastRecorded: hydLoggedToday ? formatLastRecorded(hydReading) : "PENDING TODAY",
       status: hydStatus,
-      isDisconnected: hydOut.isDisconnected,
+      isDisconnected: false,
+      isSelfReported: true,
+      isLoggedToday: hydLoggedToday,
+      inputMin: "0",
+      inputMax: "6000",
+      inputStep: "100",
       bars: hydChart.bars,
     },
     {
@@ -1101,9 +1245,14 @@ const periodicRows = computed<PeriodicCardRow[]>(() => {
       keywords: "body_mass weight nutrition mass kg",
       value: massOut.value,
       unit: massOut.unit,
-      lastRecorded: massOut.isDisconnected ? "NO SIGNAL" : formatLastRecorded(massReading),
+      lastRecorded: massLoggedToday ? formatLastRecorded(massReading) : "PENDING TODAY",
       status: massStatus,
-      isDisconnected: massOut.isDisconnected,
+      isDisconnected: false,
+      isSelfReported: true,
+      isLoggedToday: massLoggedToday,
+      inputMin: "35",
+      inputMax: "140",
+      inputStep: "0.1",
       bars: massChart.bars,
     },
     {
@@ -1208,7 +1357,7 @@ function clearFilters() {
         OTHER STATS
       </h1>
 
-      <div v-if="crewPool.length > 0" class="shrink-0">
+      <div v-if="crewPool.length > 0" class="shrink-0 inline-flex items-center gap-2">
         <label class="sr-only" for="secondary-crew-select">Select crew member</label>
         <select
           id="secondary-crew-select"
@@ -1226,6 +1375,12 @@ function clearFilters() {
             {{ astro.fullName }}
           </option>
         </select>
+        <span
+          v-if="hasPendingCheckinForSelected"
+          class="inline-block w-2.5 h-2.5 rounded-full bg-warn ring-2 ring-warn/30 shrink-0"
+          :title="pendingCheckinSummaryLabel"
+          :aria-label="pendingCheckinSummaryLabel"
+        />
       </div>
 
       <div class="relative flex-1 min-w-44 flex items-center">
@@ -1441,11 +1596,20 @@ function clearFilters() {
                   {{ row.subtitle }}
                 </span>
               </div>
-              <span
-                class="px-1.5 py-0.5 rounded border border-solid border-lineDim bg-ground text-[0.5625rem] font-semibold tracking-wider text-side shrink-0"
-              >
-                {{ row.cadencePill }}
-              </span>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span
+                  v-if="row.isSelfReported && !row.isLoggedToday"
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-solid border-warn/60 bg-warn/10 text-[0.5625rem] font-semibold tracking-wider text-warn"
+                >
+                  <span class="w-2 h-2 rounded-full bg-warn shrink-0" aria-hidden="true" />
+                  <span>PENDING TODAY</span>
+                </span>
+                <span
+                  class="px-1.5 py-0.5 rounded border border-solid border-lineDim bg-ground text-[0.5625rem] font-semibold tracking-wider text-side"
+                >
+                  {{ row.cadencePill }}
+                </span>
+              </div>
             </div>
 
             <!-- Disconnected Overlay -->
@@ -1472,16 +1636,18 @@ function clearFilters() {
               </div>
             </div>
 
-            <!-- Mood 1-5 Scale Indicator -->
+            <!-- Mood 1-5 Scale Indicator (Interactive Check-In) -->
             <div
               v-else-if="row.kind === 'mood-scale'"
               class="px-3 py-2 flex flex-col justify-center gap-1.5"
             >
-              <div class="grid grid-cols-5 gap-1.5" role="img" :aria-label="`Mood scale ${row.moodScore ?? 'unrecorded'} of 5`">
-                <div
+              <div class="grid grid-cols-5 gap-1.5" role="group" :aria-label="`Log mood scale (current ${row.moodScore ?? 'unrecorded'} of 5)`">
+                <button
                   v-for="step in 5"
                   :key="step"
-                  class="h-6 rounded border border-solid flex items-center justify-center text-[0.6875rem] font-bold tabular-nums transition-colors"
+                  type="button"
+                  :disabled="submittingMetric['mood']"
+                  class="h-6 rounded border border-solid flex items-center justify-center text-[0.6875rem] font-bold tabular-nums transition-colors cursor-pointer hover:border-main"
                   :class="
                     row.moodScore !== null && row.moodScore !== undefined && step <= row.moodScore
                       ? row.status === ReadingStatus.StatusCritical
@@ -1491,9 +1657,11 @@ function clearFilters() {
                           : 'border-ok bg-ok/20 text-ok'
                       : 'border-lineDim bg-ground text-dull'
                   "
+                  :aria-label="`Log mood score ${step} of 5`"
+                  @click="handleDailyMetricSubmit('mood', step)"
                 >
                   {{ step }}
-                </div>
+                </button>
               </div>
               <div class="flex items-center justify-between text-[0.625rem] text-dull">
                 <span>1 Low</span>
@@ -1647,11 +1815,44 @@ function clearFilters() {
               >
                 {{ row.isDisconnected ? "—" : row.value }}
               </strong>
+              <form
+                v-if="row.isSelfReported && row.kind !== 'mood-scale'"
+                class="flex items-center gap-1 mt-0.5"
+                @submit.prevent="handleDailyMetricSubmit(row.id as DailyCheckinMetricCode)"
+              >
+                <input
+                  v-model="checkinDrafts[row.id as DailyCheckinMetricCode]"
+                  type="number"
+                  :min="row.inputMin"
+                  :max="row.inputMax"
+                  :step="row.inputStep"
+                  :aria-label="`Log ${row.title}`"
+                  class="field h-6 w-full min-w-0 px-1.5 text-xs tabular-nums"
+                />
+                <button
+                  type="submit"
+                  :disabled="submittingMetric[row.id]"
+                  class="button-side h-6 px-2 text-[0.625rem] font-semibold shrink-0 cursor-pointer"
+                >
+                  {{ submittingMetric[row.id] ? "..." : "Save" }}
+                </button>
+              </form>
               <small
                 class="text-[0.625rem] font-semibold inline-flex items-center gap-1 min-w-0"
-                :class="row.isDisconnected ? 'text-stale' : 'text-dull'"
+                :class="
+                  row.isDisconnected
+                    ? 'text-stale'
+                    : row.isSelfReported && !row.isLoggedToday
+                      ? 'text-warn'
+                      : 'text-dull'
+                "
               >
                 <WifiOff v-if="row.isDisconnected" class="w-3 h-3 shrink-0" aria-hidden="true" />
+                <span
+                  v-else-if="row.isSelfReported && !row.isLoggedToday"
+                  class="w-2 h-2 rounded-full bg-warn shrink-0"
+                  aria-hidden="true"
+                />
                 <span class="truncate">{{ row.isDisconnected ? "NO SIGNAL" : row.lastRecorded }}</span>
               </small>
             </template>

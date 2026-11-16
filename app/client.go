@@ -286,6 +286,24 @@ func (c *apiClient) AckAlert(ctx context.Context, alertID, acknowledgedBy string
 	return out, nil
 }
 
+func (c *apiClient) SubmitCheckin(ctx context.Context, req model.IngestRequest) (model.IngestResult, error) {
+	if strings.TrimSpace(req.DeviceCode) == "" {
+		req.DeviceCode = "manual_checkin"
+	}
+	if strings.TrimSpace(string(req.Environment)) == "" {
+		req.Environment = model.EnvIVA
+	}
+	if strings.TrimSpace(req.RecordedAtUTC) == "" {
+		req.RecordedAtUTC = time.Now().UTC().Format(time.RFC3339)
+	}
+
+	var out model.IngestResult
+	if err := c.doJSON(ctx, http.MethodPost, "/", req, &out); err != nil {
+		return model.IngestResult{}, err
+	}
+	return out, nil
+}
+
 func (c *apiClient) GetHazards(ctx context.Context, q string) ([]model.SpaceHazard, error) {
 	params := url.Values{}
 	if trimmedQ := strings.TrimSpace(q); trimmedQ != "" {

@@ -163,6 +163,16 @@ func (a *App) AckAlert(alertID string, acknowledgedBy string) (model.AlertEvent,
 	return client.AckAlert(ctx, alertID, acknowledgedBy)
 }
 
+func (a *App) SubmitCheckin(req model.IngestRequest) (model.IngestResult, error) {
+	client, err := a.ensureClient()
+	if err != nil {
+		return model.IngestResult{}, err
+	}
+	ctx, cancel := a.rpcContext()
+	defer cancel()
+	return client.SubmitCheckin(ctx, req)
+}
+
 func (a *App) GetHazards(q string) ([]model.SpaceHazard, error) {
 	client, err := a.ensureClient()
 	if err != nil {

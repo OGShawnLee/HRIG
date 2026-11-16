@@ -7,9 +7,13 @@ import {
   GetMetrics,
   GetSnapshot,
   GetTrends,
+  IngestReading,
+  IngestRequest,
+  SubmitCheckin,
 } from "@bindings/hrig/app/app.js"
 import { ConnectionState } from "@bindings/hrig/app/models.js"
 import {
+  EnvironmentMode,
   ReadingStatus,
   TrendQuery,
   type AlertEvent,
@@ -29,6 +33,22 @@ import {
 } from "@/composables/useTelemetryNavigation"
 
 export type TelemetryDisplayStatus = ReadingStatus | "unknown"
+
+export const DAILY_CHECKIN_METRICS = [
+  "sleep_hours",
+  "mood",
+  "hydration_intake",
+  "body_mass",
+] as const
+
+export type DailyCheckinMetricCode = (typeof DAILY_CHECKIN_METRICS)[number]
+
+const DAILY_METRIC_UNITS: Record<DailyCheckinMetricCode, string> = {
+  sleep_hours: "h",
+  mood: "{score}",
+  hydration_intake: "mL",
+  body_mass: "kg",
+}
 
 export interface FormattedMetric {
   display: string
@@ -560,6 +580,79 @@ export function getEnvSeries(metricCode: string): TelemetrySeriesPoint[] {
   return seriesByKey.value[readingKey(null, metricCode)] ?? []
 }
 
+export function isDailyMetricLoggedToday(astronautId: string, metricCode: string): boolean {
+  const cleanId = astronautId.trim()
+  if (!cleanId) {
+    return false
+  }
+  const reading = getCrewReading(cleanId, metricCode)
+  if (!reading) {
+    return false
+  }
+  const isManualSource = reading.deviceCode === "manual_checkin" || reading.source === "manual"
+  if (!isManualSource) {
+    return false
+  }
+  if (!reading.recordedAtUtc || reading.recordedAtUtc.startsWith("0001-01-01")) {
+    return false
+  }
+  const recordedMs = Date.parse(reading.recordedAtUtc)
+  if (!Number.isFinite(recordedMs)) {
+    return false
+  }
+  const now = new Date()
+  const recordedDate = new Date(recordedMs)
+  const sameLocalDay =
+    recordedDate.getFullYear() === now.getFullYear() &&
+    recordedDate.getMonth() === now.getMonth() &&
+    recordedDate.getDate() === now.getDate()
+  const withinLast20h = now.getTime() - recordedMs <= 20 * 60 * 60 * 1000
+  return sameLocalDay || withinLast20h
+}
+
+export function getPendingDailyMetrics(astronautId: string): DailyCheckinMetricCode[] {
+  const cleanId = astronautId.trim()
+  if (!cleanId) {
+    return [...DAILY_CHECKIN_METRICS]
+  }
+  return DAILY_CHECKIN_METRICS.filter((code) => !isDailyMetricLoggedToday(cleanId, code))
+}
+
+export function hasPendingDailyCheckin(astronautId: string): boolean {
+  return getPendingDailyMetrics(astronautId).length > 0
+}
+
+export async function submitCrewDailyMetric(
+  astronaut: { id: string; fullName: string },
+  metricCode: DailyCheckinMetricCode,
+  numericOrScaleValue: number,
+): Promise<void> {
+  const unitCode = DAILY_METRIC_UNITS[metricCode]
+  const reading =
+    metricCode === "mood"
+      ? new IngestReading({
+          metric_code: metricCode,
+          unit_code: unitCode,
+          value_scale: Math.round(numericOrScaleValue),
+        })
+      : new IngestReading({
+          metric_code: metricCode,
+          unit_code: unitCode,
+          value_numeric: numericOrScaleValue,
+        })
+
+  const req = new IngestRequest({
+    device_code: "manual_checkin",
+    environment: EnvironmentMode.EnvIVA,
+    recorded_at_utc: new Date().toISOString(),
+    astronaut_name: astronaut.fullName,
+    readings: [reading],
+  })
+
+  await SubmitCheckin(req)
+  await Promise.all([refresh(), loadMetricTrends(astronaut.id, metricCode, MAX_SERIES_POINTS)])
+}
+
 export async function loadMetricTrends(
   astronautId: string,
   metricCode: string,
@@ -708,5 +801,10 @@ export function useTelemetry() {
     resolveReadingStatus,
     formatMetricValue,
     formatBloodPressure,
+    DAILY_CHECKIN_METRICS,
+    isDailyMetricLoggedToday,
+    getPendingDailyMetrics,
+    hasPendingDailyCheckin,
+    submitCrewDailyMetric,
   }
 }

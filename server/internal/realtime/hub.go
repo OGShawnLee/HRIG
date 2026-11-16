@@ -18,9 +18,22 @@ import (
 )
 
 const (
-	defaultStaleAfter = 15 * time.Second
-	maxStoredAlerts   = 200
+	defaultStaleAfter      = 15 * time.Second
+	dailyCheckinStaleAfter = 24 * time.Hour
+	maxStoredAlerts        = 200
 )
+
+func isDailyCheckinReading(metricCode, deviceCode, source string) bool {
+	if deviceCode == "manual_checkin" || source == "manual" {
+		return true
+	}
+	switch metricCode {
+	case "sleep_hours", "mood", "hydration_intake", "body_mass":
+		return true
+	default:
+		return false
+	}
+}
 
 var ErrAlertNotFound = errors.New("alert not found")
 
@@ -134,7 +147,11 @@ func (h *Hub) HydrateFromDB(ctx context.Context, q db.Querier) error {
 			recordedAt = row.RecordedAtUtc.Time.UTC()
 		}
 
-		isStale := now.Sub(recordedAt) > h.staleAfter
+		staleThreshold := h.staleAfter
+		if isDailyCheckinReading(row.MetricCode, deviceCode, "postgres") {
+			staleThreshold = dailyCheckinStaleAfter
+		}
+		isStale := now.Sub(recordedAt) > staleThreshold
 		status := model.ReadingStatus(row.Status)
 		if isStale {
 			status = model.StatusStale
@@ -305,7 +322,11 @@ func (h *Hub) SweepStale() int {
 	marked := 0
 	for _, k := range keys {
 		lr := h.latest[k]
-		if !lr.IsStale && now.Sub(lr.LastSeenUTC) > h.staleAfter {
+		staleThreshold := h.staleAfter
+		if isDailyCheckinReading(lr.MetricCode, lr.DeviceCode, lr.Source) {
+			staleThreshold = dailyCheckinStaleAfter
+		}
+		if !lr.IsStale && now.Sub(lr.LastSeenUTC) > staleThreshold {
 			lr.IsStale = true
 			lr.Status = model.StatusStale
 			marked++

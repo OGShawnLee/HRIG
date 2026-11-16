@@ -95,8 +95,90 @@ export function Search(q: string, tab: string): $CancellablePromise<model$0.Sear
     });
 }
 
+export class IngestReading {
+    "metric_code": string;
+    "value_numeric"?: number | null;
+    "value_scale"?: number | null;
+    "value_text"?: string | null;
+    "unit_code"?: string | null;
+
+    constructor($$source: Partial<IngestReading> = {}) {
+        if (!("metric_code" in $$source)) {
+            this["metric_code"] = "";
+        }
+        Object.assign(this, $$source);
+    }
+
+    static createFrom($$source: any = {}): IngestReading {
+        const $$parsedSource = typeof $$source === "string" ? JSON.parse($$source) : $$source;
+        return new IngestReading($$parsedSource as Partial<IngestReading>);
+    }
+}
+
+export class IngestRequest {
+    "device_code": string;
+    "environment": model$0.EnvironmentMode;
+    "recorded_at_utc": string;
+    "astronaut_name"?: string | null;
+    "readings": IngestReading[];
+
+    constructor($$source: Partial<IngestRequest> = {}) {
+        if (!("device_code" in $$source)) {
+            this["device_code"] = "";
+        }
+        if (!("environment" in $$source)) {
+            this["environment"] = model$0.EnvironmentMode.$zero;
+        }
+        if (!("recorded_at_utc" in $$source)) {
+            this["recorded_at_utc"] = "";
+        }
+        if (!("readings" in $$source)) {
+            this["readings"] = [];
+        }
+        Object.assign(this, $$source);
+    }
+
+    static createFrom($$source: any = {}): IngestRequest {
+        const $$parsedSource = typeof $$source === "string" ? JSON.parse($$source) : $$source;
+        if ("readings" in $$parsedSource) {
+            $$parsedSource["readings"] = $$createIngestReadingArray($$parsedSource["readings"]);
+        }
+        return new IngestRequest($$parsedSource as Partial<IngestRequest>);
+    }
+}
+
+export class IngestResult {
+    "measurement_id": string;
+    "recorded_at_utc": string;
+    "values_count": number;
+
+    constructor($$source: Partial<IngestResult> = {}) {
+        if (!("measurement_id" in $$source)) {
+            this["measurement_id"] = "";
+        }
+        if (!("recorded_at_utc" in $$source)) {
+            this["recorded_at_utc"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("values_count" in $$source)) {
+            this["values_count"] = 0;
+        }
+        Object.assign(this, $$source);
+    }
+
+    static createFrom($$source: any = {}): IngestResult {
+        const $$parsedSource = typeof $$source === "string" ? JSON.parse($$source) : $$source;
+        return new IngestResult($$parsedSource as Partial<IngestResult>);
+    }
+}
+
 export function SetContext(): $CancellablePromise<void> {
     return $Call.ByID(3448947074);
+}
+
+export function SubmitCheckin(req: IngestRequest): $CancellablePromise<IngestResult> {
+    return $Call.ByID(3333120644, req).then(($result: any) => {
+        return $$createType17($result);
+    });
 }
 
 // Private type creation functions
@@ -117,3 +199,5 @@ const $$createType13 = model$0.Snapshot.createFrom;
 const $$createType14 = model$0.TrendPoint.createFrom;
 const $$createType15 = $Create.Array($$createType14);
 const $$createType16 = model$0.SearchResults.createFrom;
+const $$createType17 = IngestResult.createFrom;
+const $$createIngestReadingArray = $Create.Array(IngestReading.createFrom);

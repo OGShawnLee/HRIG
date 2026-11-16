@@ -80,7 +80,8 @@ INSERT INTO device (code, name, kind) VALUES
     ('dosimeter_01',    'Radiation dosimeter',      'wearable'),
     ('cabin_sensor_01', 'Cabin environment sensor', 'environment_sensor'),
     ('lab_assay_01',    'Blood panel analyzer',     'lab_assay'),
-    ('ultrasound_01',   'Diagnostic ultrasound',    'imaging')
+    ('ultrasound_01',   'Diagnostic ultrasound',    'imaging'),
+    ('manual_checkin',  'Crew manual daily check-in', 'manual')
 ON CONFLICT (code) DO UPDATE
     SET name = EXCLUDED.name,
         kind = EXCLUDED.kind;

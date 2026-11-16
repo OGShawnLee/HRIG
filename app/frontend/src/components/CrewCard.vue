@@ -13,8 +13,21 @@ const props = defineProps<{
   astronaut: Astronaut
 }>()
 
-const { metricsByCode, getCrewReading, formatMetricValue, formatBloodPressure } = useTelemetry()
+const {
+  metricsByCode,
+  getCrewReading,
+  formatMetricValue,
+  formatBloodPressure,
+  hasPendingDailyCheckin,
+  getPendingDailyMetrics,
+} = useTelemetry()
 const { openPrimaryVitals } = useTelemetryNavigation()
+
+const hasPendingCheckin = computed(() => hasPendingDailyCheckin(props.astronaut.id))
+const pendingCheckinLabel = computed(() => {
+  const count = getPendingDailyMetrics(props.astronaut.id).length
+  return `Pending daily check-in (${count} remaining)`
+})
 
 const portraitUrl = computed(() => {
   const lowerName = props.astronaut.fullName.toLowerCase()
@@ -159,10 +172,18 @@ function statusLabel(status: TelemetryDisplayStatus): string {
       </div>
 
       <div class="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
-        <h2 class="text-xl font-medium leading-snug text-main break-words">
-          <span class="block">{{ nameLines.first }}</span>
-          <span v-if="nameLines.rest" class="block">{{ nameLines.rest }}</span>
-        </h2>
+        <div class="inline-flex items-center justify-center gap-2 max-w-full">
+          <h2 class="text-xl font-medium leading-snug text-main break-words">
+            <span class="block">{{ nameLines.first }}</span>
+            <span v-if="nameLines.rest" class="block">{{ nameLines.rest }}</span>
+          </h2>
+          <span
+            v-if="hasPendingCheckin"
+            class="inline-block w-2.5 h-2.5 rounded-full bg-warn ring-2 ring-warn/30 shrink-0"
+            :title="pendingCheckinLabel"
+            :aria-label="pendingCheckinLabel"
+          />
+        </div>
       </div>
     </div>
 

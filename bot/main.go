@@ -332,10 +332,6 @@ var sensors = []sensor{
 		{Code: "heart_rate", Unit: "/min", Kind: model.ValueNumeric, Min: 55, Max: 95},
 		{Code: "hrv_rmssd", Unit: "ms", Kind: model.ValueNumeric, Min: 25, Max: 75},
 		{Code: "core_temp", Unit: "Cel", Kind: model.ValueNumeric, Min: 36.55, Max: 37.20},
-		{Code: "sleep_hours", Unit: "h", Kind: model.ValueNumeric, Min: 7, Max: 9},
-		{Code: "mood", Unit: "{score}", Kind: model.ValueScale, Scale: 4},
-		{Code: "hydration_intake", Unit: "mL", Kind: model.ValueNumeric, Min: 1800, Max: 3000},
-		{Code: "body_mass", Unit: "kg", Kind: model.ValueNumeric, Min: 60, Max: 85},
 	}},
 	{Device: "baumanometro_01", Environment: model.EnvIVA, Astronaut: true, Metrics: []metric{
 		{Code: "bp_systolic", Unit: "mm[Hg]", Kind: model.ValueNumeric, Min: 105, Max: 120},
