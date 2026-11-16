@@ -128,7 +128,7 @@ Packages the desktop window (`1280×820`, frameless) in [`app/main.go`](../app/m
 
 ## System Deployment Description
 
-![HRIG Deployment Diagram](.routing/HRIG-FullDeploymentDiagram.png)
+![HRIG Deployment Diagram](HRIG-FullDeploymentDiagram.png)
 
 The diagram models HRIG's physical and logical deployment, distinguishing the hardware currently available from the Earth-transmission infrastructure, whose specific standard is still to be determined.
 
