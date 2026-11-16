@@ -251,3 +251,24 @@ Page: PDF document; consult the document for its internal page
 numbering
 Link:
 https://ntrs.nasa.gov/api/citations/20080010877/downloads/20080010877.pdf
+
+Space Communications, Data Systems, and Delay-Tolerant Networking (DTN)
+NASA Technical Report – NASA Technical Reports Server (NTRS)
+Page: PDF document; consult the document for its internal page numbering
+Link: https://ntrs.nasa.gov/api/citations/20100042149/downloads/20100042149.pdf
+
+All Active Publications – Consultative Committee for Space Data Systems (CCSDS)
+Page: No page number (publication catalog)
+Link: https://ccsds.org/publications/allpubs/
+
+Blue Books – Consultative Committee for Space Data Systems (CCSDS)
+Page: No page number (standards catalog)
+Link: https://ccsds.org/publications/bluebooks/
+
+CCSDS 130.0-G-4 – Overview of Space Communications Protocols
+Page: PDF document; consult the document for its internal page numbering
+Link: https://ccsds.org/Pubs/130x0g4e1.pdf
+
+Testing Delay-Tolerant Networks (DTN) – Apposite Technologies
+Page: No page number (web article)
+Link: https://apposite-tech.com/testing-delay-tolerant-networks/
